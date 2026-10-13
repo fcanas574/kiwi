@@ -28,6 +28,7 @@ def test_health_reports_primary_multiobject_models():
     assert data['ok'] is True
     assert data['mode'] == 'grounding_dino_qwen'
     assert data['calibrated'] is False
+    assert data['capabilities'] == {'predict': True, 'detect': True, 'classify': True}
 
 
 def test_missing_detector_does_not_fall_back_to_single_object():

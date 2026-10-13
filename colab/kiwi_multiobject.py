@@ -66,24 +66,48 @@ class MultiObjectRecognizer:
                for box, score, label in zip(result['boxes'], result['scores'], labels)]
         return select_detections(raw, image.size, limit), len(raw)
 
+    def locate(self, image, threshold=.25):
+        """Run DINO only and return the bounded, oriented detection contract."""
+        if image is None:
+            return {'image_size': None, 'objects': [], 'raw_detections': 0,
+                    'detection_seconds': 0.0}
+        image = ImageOps.exif_transpose(image).convert('RGB')
+        start = time.perf_counter()
+        detections, raw_count = self.detect(image, threshold)
+        objects = [{'id': index, 'box': detection['box'],
+                    'detector_label': detection['label'],
+                    'detector_score': detection['score']}
+                   for index, detection in enumerate(detections[:12], 1)]
+        return {'image_size': list(image.size), 'objects': objects,
+                'raw_detections': raw_count,
+                'detection_seconds': round(time.perf_counter() - start, 3)}
+
+    def classify_crop(self, image):
+        """Run Qwen only for one supplied crop."""
+        if image is None:
+            return {'recognized': False, 'candidate': None, 'location_id': None,
+                    'reason': 'Sube una fotografía.'}
+        image = ImageOps.exif_transpose(image).convert('RGB')
+        return self.classify(image)
+
     def identify(self, image, threshold=.25):
         if image is None:
             return None, [], {'mode': 'grounding_dino_qwen', 'image_size': None, 'objects': [], 'reason': 'Sube una foto.'}
         image = ImageOps.exif_transpose(image).convert('RGB')
         start = time.perf_counter()
-        detections, raw_count = self.detect(image, threshold)
-        detection_seconds = time.perf_counter() - start
+        located = self.locate(image, threshold)
         annotated = image.copy()
         draw = ImageDraw.Draw(annotated)
         objects, crops = [], []
-        for index, detection in enumerate(detections, 1):
+        for detection in located['objects']:
+            index = detection['id']
             box = detection['box']
             # A small border preserves context without including most neighbors.
             pad = max(2, round(min(box[2] - box[0], box[3] - box[1]) * .04))
             crop_box = [max(0, box[0] - pad), max(0, box[1] - pad),
                         min(image.width, box[2] + pad), min(image.height, box[3] + pad)]
             crop = image.crop(crop_box)
-            result = self.classify(crop)
+            result = self.classify_crop(crop)
             accepted = bool(result.get('recognized'))
             candidate = result.get('candidate')
             caption = f'{index}: {candidate or "desconocido"}' + ('' if accepted else ' (revisar)')
@@ -92,10 +116,12 @@ class MultiObjectRecognizer:
             draw.text((box[0], max(0, box[1] - 14)), caption, fill=color)
             crops.append((crop, caption))
             objects.append({'id': index, 'box': box, 'crop_box': crop_box,
-                            'detector_label': detection['label'], 'detector_score': detection['score'],
+                            'detector_label': detection['detector_label'],
+                            'detector_score': detection['detector_score'],
                             'category': candidate, 'recognized': accepted, 'recognition': result})
-        return annotated, crops, {'mode': 'grounding_dino_qwen', 'image_size': list(image.size), 'objects': objects, 'raw_detections': raw_count,
-                                  'detection_seconds': round(detection_seconds, 3),
+        detection_seconds = located['detection_seconds']
+        return annotated, crops, {'mode': 'grounding_dino_qwen', 'image_size': list(image.size), 'objects': objects, 'raw_detections': located['raw_detections'],
+                                  'detection_seconds': detection_seconds,
                                   'elapsed_seconds': round(time.perf_counter() - start, 3),
                                   'limit': 12, 'reason': 'Sin objetos detectados.' if not objects else
                                   'Revisa objetos omitidos y componentes del mismo equipo.'}
