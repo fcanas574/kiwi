@@ -10,6 +10,8 @@ Approved business behavior: [multiobject design](docs/multiobject-integration-de
 | Dialog | `labelSheet` and `openLabelSheet` | Per-object correction contract | Category correction | Keyboard Escape, Tab and focus restoration |
 | File upload | `fileInput`, `cameraInput`, `onFilePicked` | Server validates normalized image | Gallery or device photo | Browser upload and API invalid-image handling |
 | Status feedback | `renderGuide` and `toast` | Station snapshot and operation ID | Pending, confirmed, wrong, timeout, offline | Node operation tests and browser sensor simulation |
+| Scrollbar | CSS root scrollbar tokens | `pi/kiwi_pi/static/styles.css` | Mobile result scroll | 390x844 browser inspection |
+| Toast | `toast` | API error messages | Informational or error | Browser correction and network error |
 | Select/Listbox | Native `forceSelect` | Diagnostic simulator categories | Local diagnostic only | Native keyboard and selected option |
 
 ## State and recovery

@@ -1,126 +1,110 @@
-# Kiwi — identificación y devolución de herramientas
+# Kiwi — identificar y devolver varias herramientas
 
-Prototipo del reto de **Key Week**: una persona fotografía una herramienta con el **teléfono**, la IA en **Google Colab** la reconoce y una **Raspberry Pi 4** enciende el LED de su lugar en el estante y verifica con sensores que se devolvió a la posición correcta. La interfaz sigue el diseño de Figma (**ToolLighthouse**: Captura → Revisión → Resultado).
+Prototipo de **Key Week / ToolLighthouse**. Una persona fotografía varias herramientas, **Grounding DINO** localiza los objetos y **Qwen3-VL-4B-Instruct** reconoce cada recorte en Google Colab. La Raspberry Pi enciende todas las ubicaciones aceptadas y verifica sus devoluciones simultáneamente con sensores.
 
 [![Abrir en Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/fcanas574/kiwi/blob/main/Kiwi_EmbeddingGemma2_Colab.ipynb)
 
-> `main` integra la estación Raspberry Pi, la API REST de Colab y el reconocimiento con VLM. El flujo está probado con hardware simulado; falta validar la instalación y los drivers en la Raspberry Pi real.
-
 ```mermaid
 flowchart LR
-    T[Teléfono<br>toma o sube la foto] -- Wi-Fi --> S[Estación kiwi_pi<br>Raspberry Pi o laptop]
-    S -- POST /predict · ngrok --> C[Google Colab<br>Qwen3-VL + EmbeddingGemma]
-    C -- herramienta y confianza --> S
-    S --> L[LED de la posición]
-    P[Sensores del estante] --> S
+    T[Foto del teléfono] --> P[Raspberry Pi]
+    P --> D[Colab: Grounding DINO]
+    D --> C[Recorte de cada objeto]
+    C --> Q[Qwen3-VL-4B]
+    Q --> R[Lista de aceptados y rechazados]
+    R --> P
+    P --> L[Todas las ubicaciones aceptadas]
+    S[Sensores por ubicación] --> P
 ```
 
-## Componentes
+## Cómo funciona
 
-| Ruta | Qué es |
+1. DINO devuelve cuadros para las herramientas descritas en inglés. Se eliminan cuadros muy similares; se procesan hasta 12 recortes por imagen.
+2. Qwen clasifica cada recorte. Rechaza `otros` y resultados ambiguos; sus criterios iniciales son puntuación ≥ 0,90 y margen ≥ 0,50. Las puntuaciones de DINO y Qwen se mantienen separadas y no son probabilidades calibradas.
+3. La pantalla muestra la foto con cuadros y todos los objetos. Los aceptados encienden los LEDs de sus ubicaciones; los rechazados permanecen visibles para revisión.
+4. Cada ubicación pendiente está azul; al detectar la devolución cambia a verde. Las demás siguen pendientes. La operación termina cuando todas estén confirmadas y no quede una ubicación equivocada marcada.
+5. **Corregir** en un objeto guarda únicamente su recorte y la etiqueta real para ampliar el dataset.
+
+**Límite del hardware:** un sensor de presencia verifica que una ubicación se ocupó, no la identidad ni la cantidad de herramientas depositadas. Varios objetos de una categoría comparten una ubicación y un LED. Una posición que ya estaba ocupada debe liberarse antes de contar una nueva devolución. Sin sensores, el sistema guía pero no declara una devolución verificada.
+
+El flujo principal siempre es DINO → Qwen. EmbeddingGemma 2 puede añadirse como verificación por recorte mediante `VLM_CHECK_WITH_REFERENCES=True`; queda desactivado por defecto.
+
+## Preparar Colab
+
+1. Abrir el notebook con el botón anterior y guardar una copia en Drive.
+2. Seleccionar **GPU T4** si está disponible. CPU también funciona: Qwen se carga en NF4 de 4 bits y usa recortes de menor resolución; sus resultados pueden diferir de GPU.
+3. Ejecutar las secciones **1–5c**: dependencias, categorías, preparación, Qwen y DINO. No hace falta `references.zip` para el flujo principal.
+4. Para ver resultados desde Colab/celular, ejecutar **6 (Gradio)** e introducir la contraseña de la sesión. Devuelve imagen anotada, galería y JSON.
+5. Para conectar la Pi, crear los secretos `NGROK_AUTHTOKEN` y `KIWI_API_KEY` (16 caracteres o más), ejecutar **6b** y copiar el endpoint `/predict`.
+
+Si activas la verificación adicional con EmbeddingGemma, subir [`references.zip`](dataset_prepared/references.zip) a **Mi unidad/Kiwi/references.zip**, autorizar Drive y volver a ejecutar desde 2. Los umbrales y la precisión deben evaluarse con fotos nuevas.
+
+### Gradio y ngrok
+
+- **Gradio:** página de fotografías y API `/identify`; devuelve tres salidas, y el JSON de objetos es la tercera.
+- **ngrok:** publica la API REST de FastAPI para la Pi: `POST /predict` y `GET /health`.
+- Ambos usan DINO y Qwen. El bloqueo compartido serializa las inferencias.
+
+Los enlaces dependen de la sesión de Colab. Al reiniciar ngrok puede cambiar la URL. Revisar la disponibilidad y las [condiciones de Colab](https://research.google.com/colaboratory/faq.html) para demostraciones mediante interfaces externas.
+
+## Probar la estación en una laptop
+
+```bash
+git clone https://github.com/fcanas574/kiwi.git
+cd kiwi/pi
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+cp config.example.yaml config.yaml
+```
+
+Sin Colab ni hardware:
+
+```bash
+.venv/bin/python -m kiwi_pi --mock
+```
+
+Abrir `http://localhost:8000`. El simulador devuelve multímetro, servo y cautín. Pulsar el logo o abrir `/?diag` permite colocar/retirar objetos simulados, ver todos los LEDs y forzar otra categoría.
+
+Con Colab real y hardware simulado, poner el endpoint en `recognizer.url` de `config.yaml`:
+
+```bash
+KIWI_API_KEY='la-misma-clave-de-colab' .venv/bin/python -m kiwi_pi --sim-hardware
+```
+
+El teléfono abre `http://<IP-de-la-laptop>:8000` en la misma red Wi-Fi. En Windows, usar `.venv\Scripts\python` y configurar la variable con `$env:KIWI_API_KEY='la-clave'` en PowerShell.
+
+Para Raspberry Pi, conexiones y drivers, ver [pi/README.md](pi/README.md).
+
+### Tiempos de espera
+
+`recognizer.timeout_seconds` tiene un valor inicial de 1800 para admitir pruebas CPU lentas. Reducirlo al medir el flujo GPU. Colab y el túnel pueden imponer sus propios límites. La carga inicial descarga aproximadamente 9 GB de Qwen; no representa el tiempo de cada foto.
+
+`guide.guide_timeout_seconds` controla otra cosa: el tiempo para devolver las herramientas **después** del reconocimiento. Al vencer, apaga las luces y muestra las ubicaciones pendientes.
+
+## API y dataset
+
+REST devuelve `{mode, image_size, objects, elapsed_seconds}`. Cada objeto contiene `id`, `box`, `crop_box`, `category`, `recognized`, `detector_score` y `recognition` (resultado individual de Qwen). Las coordenadas se refieren a la imagen orientada que envió la Pi. Una respuesta inválida no activa LEDs.
+
+La Pi registra un resultado por objeto en `pi/data/recognitions.csv`. Las correcciones viven en `pi/data/feedback/<categoría>/`; `.venv/bin/python -m kiwi_pi.dataset` las incorpora a `dataset_prepared/references/` y regenera el ZIP. No se realiza fine-tuning: las referencias solo participan cuando se activa la verificación adicional.
+
+El dataset contiene 55 imágenes: 52 referencias y 3 de evaluación. Categorías: `soldering_station`, `digital_multimeter`, `bench_power_supply`, `servo_motor`, `oscilloscope`, `function_generator`, `variable_capacitor`, `capacitors`, `power_adapter`, `multimeter_box`, `solder` y `otros`. **`solder` significa cautín** (*soldering iron*) en este proyecto. Las nueve ubicaciones físicas siguen siendo provisionales.
+
+## Validación y pendientes
+
+Las pruebas de software cubren resultados mixtos, cuadros inválidos, categorías repetidas, respuestas atrasadas, correcciones por recorte y devoluciones simultáneas. El navegador se probó con tres ubicaciones simuladas, devolución parcial, error de ubicación y finalización, además de pantalla móvil y teclado.
+
+La [prueba inicial de DINO en CPU](colab/probe_results/dino_cpu.json) encontró las regiones de multímetro, servo y cautín en un montaje, junto con fondo y duplicados, en 27,643 segundos. Un montaje de referencias no mide precisión en una escena real. Los experimentos reproducibles permanecen en [colab/MULTIOBJECT_PROBE.md](colab/MULTIOBJECT_PROBE.md).
+
+Pendiente: medir precisión y tiempo del flujo integrado en GPU, probar fotos reales con varios objetos y validar LEDs/sensores en la Raspberry Pi física. No se añadieron todavía filtros nuevos para eliminar objetos del fondo.
+
+## Archivos principales
+
+| Ruta | Función |
 |---|---|
-| [`Kiwi_EmbeddingGemma2_Colab.ipynb`](Kiwi_EmbeddingGemma2_Colab.ipynb) | Notebook con dos secciones nuevas: **5b** (reconocimiento con VLM) y **6b** (API REST con ngrok para la estación). |
-| [`colab/kiwi_vlm.py`](colab/kiwi_vlm.py) | El mismo código de la sección 5b en un archivo, para ejecutarlo con `exec(...)` desde Drive. |
-| [`pi/`](pi/README.md) | Estación: servidor, interfaz táctil del diseño de Figma, drivers de LEDs, sensores y cámara, instalación en la Pi y tests. |
-| [`dataset_prepared/`](dataset_prepared/README.md) | 11 fotos adicionales y la categoría `otros` (objetos que no deben encender un LED). `references.zip` regenerado. |
+| [Notebook](Kiwi_EmbeddingGemma2_Colab.ipynb) | Flujo principal DINO/Qwen, Gradio y REST |
+| [colab/kiwi_multiobject.py](colab/kiwi_multiobject.py) | Detector, recortes y resultados |
+| [colab/kiwi_vlm.py](colab/kiwi_vlm.py) | Clasificador Qwen CPU/GPU |
+| [pi/](pi/README.md) | Interfaz, guía simultánea y drivers |
+| [dataset_prepared/](dataset_prepared/README.md) | Referencias, evaluación y manifiesto |
+| [Contexto del reto](Key_Week_Proyecto_Sistema_Inteligente_Herramientas.md) | Objetivos y requisitos |
 
-### Cómo reconoce las herramientas
-
-1. **VLM Qwen3-VL-4B-Instruct (sección 5b):** recibe la foto y una pregunta de opción múltiple con las herramientas. Compara las opciones mediante puntuaciones del siguiente token, incluyendo `otros` para rechazar objetos ajenos o fotografías ambiguas. Puede ejecutarse sin referencias, pero requiere validar sus resultados con los equipos reales.
-2. **Doble verificación con EmbeddingGemma 2 (secciones 4–5):** si la herramienta tiene fotos de referencia y EmbeddingGemma elige otra, no se enciende ningún LED.
-3. **Regla inicial de aceptación:** puntuación normalizada entre las opciones ≥ 0,90 y ventaja ≥ 0,50 sobre la segunda opción. Estas puntuaciones no son probabilidades calibradas de que la identificación sea correcta. Si no se cumple, la pantalla pide repetir la foto.
-
-**Validación disponible:** 13 pruebas de Python y 2 de JavaScript cubren el flujo con hardware simulado, cancelaciones, rechazo, posiciones equivocadas, correcciones del dataset y selección del reconocedor. El dataset contiene 55 imágenes (52 referencias y 3 de evaluación); no se ha incluido una evaluación reproducible de precisión del VLM ni de latencia en T4. Probar equipos de frente y objetos ajenos antes de la demostración.
-
-### Gradio y ngrok: dos accesos al mismo reconocedor
-
-- **Gradio (sección 6):** página del celular para subir fotografías y obtener resultados; también expone su propia API de Gradio.
-- **ngrok (sección 6b):** enlace HTTPS a la API REST de FastAPI en Colab. La estación usa `POST /predict` y `GET /health` con la clave `KIWI_API_KEY` para predecir.
-- Ambos llaman al reconocedor activo: **Qwen3-VL** al ejecutar 5b, o **EmbeddingGemma 2** al ejecutar 4–5 sin 5b. ngrok no es exclusivo de Qwen.
-
-Los enlaces son temporales. Colab gratuito restringe interactuar principalmente mediante interfaces web externas; revisar sus condiciones y disponibilidad para una demostración.
-
-## Guía para un compañero que trabaja desde otra casa
-
-Colab corre en la nube de Google, así que funciona desde cualquier internet. Lo único local es la **página de la estación**: la abre el teléfono conectado al mismo Wi-Fi que la computadora (o la Pi) que la sirve. Cada persona usa **su propio Colab, su propia cuenta de ngrok y su propia estación**.
-
-### 1. Preparar Google Drive y los secretos de Colab
-
-1. Descargar [`dataset_prepared/references.zip`](dataset_prepared/references.zip) del repositorio y guardarlo en **Mi unidad → Kiwi → references.zip**. Sirve para la doble verificación; sin él, cambiar `LOAD_REFERENCE_ZIP = False` en la sección 5.
-2. Crear una cuenta gratuita en [ngrok](https://ngrok.com) y copiar su *authtoken*.
-3. Abrir el notebook con el botón **Abrir en Colab** de arriba y guardar una copia en Drive (**Archivo → Guardar una copia en Drive**).
-4. En Colab, en **Secretos** (icono de llave), crear y dar acceso al notebook:
-   - `NGROK_AUTHTOKEN`: el token de ngrok.
-   - `KIWI_API_KEY`: una clave inventada de 16 caracteres o más. Se usa después en la estación.
-5. **Entorno de ejecución → Cambiar tipo de entorno → GPU T4**.
-
-### 2. Ejecutar el notebook
-
-| Sección | Para qué | Notas |
-|---|---|---|
-| 1–3 | Dependencias, Drive y modelo EmbeddingGemma | Autorizar Drive. Si pide reiniciar la sesión tras instalar, reiniciar y seguir. |
-| 4–5 | Comparación por fotos y carga de `references.zip` | Debe imprimir `Referencias cargadas: {...}`. |
-| **5b** | **VLM Qwen3-VL** | La primera vez descarga ~9 GB; el tiempo depende de la conexión y GPU. Debe imprimir `Reconocimiento activo: VLM ...`. |
-| 6 | Página de Gradio (opcional) | Enlace `gradio.live` para probar el reconocimiento desde cualquier teléfono, sin estación. |
-| **6b** | **API para la estación** | Imprime `Endpoint para la Raspberry Pi: https://….ngrok-free.app/predict`. Copiar esa URL. |
-
-Si se ejecuta otra vez la sección 4, hay que volver a ejecutar la 5b, porque la 4 restablece el reconocimiento por fotos.
-
-### 3. Probar solo el reconocimiento (lo más rápido)
-
-Abrir en el teléfono el enlace `gradio.live` de la sección 6 (usuario `kiwi` y la contraseña que se escribió en la celda). Subir una foto y pulsar **Identificar**. La respuesta muestra `candidate`, `similarity` (puntuación; su significado depende del modo) y `recognized`.
-
-### 4. Correr la estación en una laptop (sin Raspberry Pi)
-
-Requiere Python 3.10 o superior. Los LEDs y sensores se simulan.
-
-```bash
-git clone https://github.com/fcanas574/kiwi.git && cd kiwi/pi
-```
-
-```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && cp config.example.yaml config.yaml
-```
-
-En `pi/config.yaml` poner la URL de la sección 6b en `recognizer.url`. La clave va en una variable de entorno, no en el archivo:
-
-```bash
-KIWI_API_KEY='la-misma-clave-del-secreto-de-colab' .venv/bin/python -m kiwi_pi --sim-hardware
-```
-
-En Windows (PowerShell): `$env:KIWI_API_KEY='la-clave'; .venv\Scripts\python -m kiwi_pi --sim-hardware` (crear el entorno con `python -m venv .venv` y `.venv\Scripts\pip install -r requirements-dev.txt`).
-
-- Abrir en el teléfono, conectado al **mismo Wi-Fi** que la laptop: `http://<IP-de-la-laptop>:8000`. Para ver la IP en Mac: `ipconfig getifaddr en0`; en Windows: `ipconfig`.
-- En la laptop, `http://localhost:8000/?diag` (o mantener pulsado el logo) abre el **diagnóstico**: ahí se ve qué LED se encendería y se pueden simular los sensores.
-- La barra superior debe decir **API en línea**. Si dice «sin conexión», revisar la URL y la clave.
-- Sin Colab se puede probar la interfaz con `.venv/bin/python -m kiwi_pi --mock`, que simula también el reconocimiento.
-
-### 5. Instalar en la Raspberry Pi 4
-
-Ver [pi/README.md](pi/README.md): instalación con `deploy/install.sh`, pantalla en modo kiosco, conexión de LEDs (GPIO, tira WS2812 o ESP32/Arduino) y sensores (IR, microswitch, reed), y lista de verificación para la demo.
-
-## Mejorar el reconocimiento
-
-- **Agregar o cambiar una herramienta:** editar su descripción en `CATEGORIES` (sección 2) y, si se parece a otra, en `VLM_DESCRIPTIONS` (sección 5b). En modo VLM, las fotos siguen siendo útiles para la verificación opcional con EmbeddingGemma.
-- **Correcciones desde la estación:** al pulsar **No es correcta** la pantalla pregunta **¿Qué era?** y guarda la foto con su etiqueta real. `.venv/bin/python -m kiwi_pi.dataset` las incorpora a `dataset_prepared/references/` y regenera `references.zip`; después hay que subir el ZIP a Drive y ejecutar las secciones 4, 5 y 5b.
-- **Para la demo:** mostrar cada equipo **de frente** a la cámara.
-
-## Pendientes
-
-- Probar desde el teléfono las 9 herramientas de frente; guardar resultados por categoría, rechazos y tiempos de respuesta.
-- Definir los sensores del estante y la conexión de los LEDs en la Raspberry Pi real.
-- Las 9 herramientas de `pi/config.example.yaml` son provisionales: se dejaron fuera `capacitors` y `multimeter_box`.
-- Colab gratuito y ngrok son temporales: la URL cambia al reiniciar la sección 6b y hay que pegarla de nuevo en la estación.
-
-## Categorías
-
-`soldering_station`, `digital_multimeter`, `bench_power_supply`, `servo_motor`, `oscilloscope`, `function_generator`, `variable_capacitor`, `capacitors`, `power_adapter`, `multimeter_box`, `solder` y `otros` (referencias negativas). En este proyecto **`solder` identifica el cautín** (*soldering iron*), no el alambre de soldadura.
-
-## Contexto y fuentes
-
-- [Documento del reto](Key_Week_Proyecto_Sistema_Inteligente_Herramientas.md): objetivos, requisitos y cronograma.
-- [Dataset preparado](dataset_prepared/README.md) y [manifiesto](dataset_prepared/manifest.csv); `Kiwi Dataset/` conserva las fotos originales.
-- [Qwen3-VL-4B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct) · [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) · [guía multimodal de EmbeddingGemma](https://ai.google.dev/gemma/docs/embeddinggemma/multimodal-embeddinggemma-with-sentence-transformers)
-- [Gradio: enlaces y API](https://gradio.app/guides/sharing-your-app) · [ngrok](https://ngrok.com/docs) · [Condiciones de Colab](https://research.google.com/colaboratory/faq.html)
-
-Los pesos de los modelos se descargan desde su fuente oficial y no se incluyen en este repositorio. No se realiza fine-tuning: los dos modelos son preentrenados.
+Los pesos se descargan desde sus fuentes oficiales y no se incluyen en el repositorio. [Grounding DINO](https://huggingface.co/docs/transformers/model_doc/grounding-dino) · [Qwen3-VL-4B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct).

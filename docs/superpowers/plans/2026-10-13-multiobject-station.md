@@ -1,6 +1,6 @@
 # Primary Multiobject Station Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Hacer que Kiwi reconozca varios objetos por foto y guíe todas sus devoluciones simultáneamente.
 
@@ -54,12 +54,12 @@ Contrato de guía: `{operation_id, phase, targets, pending, confirmed, wrong_slo
 
 **Interfaces:** `MultiObjectRecognizer(classify).identify(image, threshold=.25)` devuelve `(annotated, gallery, response)`; `identify_objects(image)` devuelve solo `response` para REST. Ambos usan los mismos modelos y bloqueo.
 
-- [ ] Añadir pruebas que exijan `image_size`, conservación de todos los rechazos, lista vacía sin clasificación y máximo de 12 objetos. Verificar que el notebook usa DINO/Qwen por defecto y no responde mediante el antiguo clasificador si falta cargar DINO.
-- [ ] Ejecutar `rtk proxy env PYTHONPATH=pi:colab /tmp/kiwi-merge-venv/bin/python -m pytest colab/test_multiobject_probe.py pi/tests/test_colab_contract.py -q`; confirmar fallos por los contratos nuevos.
-- [ ] Implementar `MultiObjectRecognizer` y sus contratos en el módulo existente. Conservar alias del experimento y compartir bloqueo entre REST y Gradio.
-- [ ] Ajustar el notebook: categorías sin cargar obligatoriamente EmbeddingGemma, carga de Qwen y DINO principal, Gradio con imagen/galería/JSON y `/predict` con respuesta multiobjeto. `/health` reportará el modo principal y disponibilidad de ambos modelos. La verificación por referencias será adicional y explícita.
-- [ ] Añadir carga CPU NF4 a `colab/kiwi_vlm.py`, reutilizando la configuración del experimento CPU; GPU conserva el modelo Qwen3-VL-4B. Documentar la menor resolución de CPU.
-- [ ] Ejecutar las pruebas y validar la sintaxis de todas las celdas Python del notebook; commit de esta unidad.
+- [x] Añadir pruebas que exijan `image_size`, conservación de todos los rechazos, lista vacía sin clasificación y máximo de 12 objetos. Verificar que el notebook usa DINO/Qwen por defecto y no responde mediante el antiguo clasificador si falta cargar DINO.
+- [x] Ejecutar `rtk proxy env PYTHONPATH=pi:colab /tmp/kiwi-merge-venv/bin/python -m pytest colab/test_multiobject_probe.py pi/tests/test_colab_contract.py -q`; confirmar fallos por los contratos nuevos.
+- [x] Implementar `MultiObjectRecognizer` y sus contratos en el módulo existente. Conservar alias del experimento y compartir bloqueo entre REST y Gradio.
+- [x] Ajustar el notebook: categorías sin cargar obligatoriamente EmbeddingGemma, carga de Qwen y DINO principal, Gradio con imagen/galería/JSON y `/predict` con respuesta multiobjeto. `/health` reportará el modo principal y disponibilidad de ambos modelos. La verificación por referencias será adicional y explícita.
+- [x] Añadir carga CPU NF4 a `colab/kiwi_vlm.py`, reutilizando la configuración del experimento CPU; GPU conserva el modelo Qwen3-VL-4B. Documentar la menor resolución de CPU.
+- [x] Ejecutar las pruebas y validar la sintaxis de todas las celdas Python del notebook; commit de esta unidad.
 
 ### Task 2: LEDs y verificación simultánea por sensores
 
@@ -67,12 +67,12 @@ Contrato de guía: `{operation_id, phase, targets, pending, confirmed, wrong_slo
 
 **Interfaces:** `begin_guides(slots: list[Slot], operation_id: str, test_mode: bool=False) -> None`; `snapshot()['guide']` entrega el contrato de guía anterior. `cancel_guide()` invalida el reconocimiento en curso y limpia todos los conjuntos.
 
-- [ ] Añadir pruebas de dos y tres objetivos en distintos órdenes, confirmación parcial, objetivo ya ocupado, retirada de uno confirmado, varios errores de ubicación, timeout parcial y sensores desactivados. Exigir fin solo con todos confirmados y ningún error pendiente.
-- [ ] Ejecutar `rtk proxy env PYTHONPATH=pi /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests/test_multiobject_station.py -q`; confirmar fallos.
-- [ ] Sustituir el objetivo único por mapas/conjuntos de objetivos, pendientes, confirmados, bloqueados y equivocados. Evitar que las transiciones de un sensor borren el estado de otro.
-- [ ] Implementar azul por pendiente, verde por confirmado y rojo por posición equivocada. Un objetivo ocupado inicialmente requiere liberación antes de aceptar una nueva ocupación. Una retirada durante la operación revierte su confirmación.
-- [ ] Conservar el temporizador global de guía; al completar todos iniciar el reinicio automático. Timeout conserva el progreso visible y apaga todas las luces. Sin sensores no completar automáticamente.
-- [ ] Ejecutar las pruebas de sensores y actualizar las pruebas antiguas al contrato de guía; commit de esta unidad. La verificación de cancelaciones HTTP se completa en Task 3.
+- [x] Añadir pruebas de dos y tres objetivos en distintos órdenes, confirmación parcial, objetivo ya ocupado, retirada de uno confirmado, varios errores de ubicación, timeout parcial y sensores desactivados. Exigir fin solo con todos confirmados y ningún error pendiente.
+- [x] Ejecutar `rtk proxy env PYTHONPATH=pi /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests/test_multiobject_station.py -q`; confirmar fallos.
+- [x] Sustituir el objetivo único por mapas/conjuntos de objetivos, pendientes, confirmados, bloqueados y equivocados. Evitar que las transiciones de un sensor borren el estado de otro.
+- [x] Implementar azul por pendiente, verde por confirmado y rojo por posición equivocada. Un objetivo ocupado inicialmente requiere liberación antes de aceptar una nueva ocupación. Una retirada durante la operación revierte su confirmación.
+- [x] Conservar el temporizador global de guía; al completar todos iniciar el reinicio automático. Timeout conserva el progreso visible y apaga todas las luces. Sin sensores no completar automáticamente.
+- [x] Ejecutar las pruebas de sensores y actualizar las pruebas antiguas al contrato de guía; commit de esta unidad. La verificación de cancelaciones HTTP se completa en Task 3.
 
 ### Task 3: Contrato de la Pi y correcciones individuales
 
@@ -80,14 +80,14 @@ Contrato de guía: `{operation_id, phase, targets, pending, confirmed, wrong_slo
 
 **Interfaces:** `Recognizer.predict(jpeg)` entrega el contrato Colab; `Station.begin_guides(slots, operation_id, test_mode=False)` será implementado por Task 2. `RejectBody` añade `object_id`; cada objeto guardado incluye sus cuadros.
 
-- [ ] Crear pruebas de lista vacía, resultados mixtos, categoría sin ubicación, IDs repetidos, cuadro inválido y dos detecciones de la misma categoría. Exigir un único objetivo por ubicación y ningún LED para rechazados.
-- [ ] Crear pruebas de cancelación/respuesta atrasada y de corrección por `object_id`: el archivo guardado debe tener las dimensiones del recorte, no de la foto completa; foto caducada u objeto inexistente no deben guardar datos.
-- [ ] Ejecutar `rtk proxy env PYTHONPATH=pi /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests/test_multiobject_api.py -q` y confirmar los fallos esperados.
-- [ ] Validar explícitamente el contrato remoto; actualizar el cliente Gradio para tomar el JSON final de su respuesta de tres salidas y el simulador para devolver varios objetos. Mantener el driver REST en `/predict`.
-- [ ] Transformar todos los resultados en `/api/recognize`, asignar `operation_id` único, registrar por objeto e iniciar `begin_guides` una sola vez. No reinterpretar un rechazo explícito de Qwen como aceptación de producción.
-- [ ] Corregir `/api/reject` para guardar el recorte validado del objeto elegido y sus metadatos. Guardar una corrección cancela la operación activa, como define el diseño.
-- [ ] Configurar `timeout_seconds: 1800` en el ejemplo para admitir la prueba CPU lenta; documentar que GPU permite reducirlo después de medir la latencia y que un túnel externo también puede imponer límites.
-- [ ] Ejecutar pruebas; commit de esta unidad usando el contrato de guía de Task 2.
+- [x] Crear pruebas de lista vacía, resultados mixtos, categoría sin ubicación, IDs repetidos, cuadro inválido y dos detecciones de la misma categoría. Exigir un único objetivo por ubicación y ningún LED para rechazados.
+- [x] Crear pruebas de cancelación/respuesta atrasada y de corrección por `object_id`: el archivo guardado debe tener las dimensiones del recorte, no de la foto completa; foto caducada u objeto inexistente no deben guardar datos.
+- [x] Ejecutar `rtk proxy env PYTHONPATH=pi /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests/test_multiobject_api.py -q` y confirmar los fallos esperados.
+- [x] Validar explícitamente el contrato remoto; actualizar el cliente Gradio para tomar el JSON final de su respuesta de tres salidas y el simulador para devolver varios objetos. Mantener el driver REST en `/predict`.
+- [x] Transformar todos los resultados en `/api/recognize`, asignar `operation_id` único, registrar por objeto e iniciar `begin_guides` una sola vez. No reinterpretar un rechazo explícito de Qwen como aceptación de producción.
+- [x] Corregir `/api/reject` para guardar el recorte validado del objeto elegido y sus metadatos. Guardar una corrección cancela la operación activa, como define el diseño.
+- [x] Configurar `timeout_seconds: 1800` en el ejemplo para admitir la prueba CPU lenta; documentar que GPU permite reducirlo después de medir la latencia y que un túnel externo también puede imponer límites.
+- [x] Ejecutar pruebas; commit de esta unidad usando el contrato de guía de Task 2.
 
 ### Task 4: Cuadros y progreso en la interfaz
 
@@ -95,12 +95,12 @@ Contrato de guía: `{operation_id, phase, targets, pending, confirmed, wrong_slo
 
 **Interfaces:** Consume los contratos de respuesta y guía. Las correcciones envían `{photo_id, object_id, actual}`. Los eventos se aplican solo cuando `operation_id` coincide con la foto mostrada.
 
-- [ ] Añadir pruebas de coordenadas de cuadros expresadas en porcentaje según `image_size`, resultados mixtos, categorías duplicadas y eventos de otra operación con iguales categorías. La confirmación parcial no debe llamar a `resetToCapture`.
-- [ ] Ejecutar las pruebas Node y confirmar fallos por el comportamiento nuevo.
-- [ ] Mostrar fotografía anotada con cuadros y lista de objetos, incluidos rechazados. Dibujar sobre la imagen con dimensiones relativas para mantener alineación en celular y escritorio.
-- [ ] Adaptar el mapa a múltiples objetivos y mostrar «N de M ubicaciones confirmadas». Mostrar posiciones bloqueadas/equivocadas sin ocultar el progreso correcto; terminar solo con `phase: returned` de esta operación.
-- [ ] Añadir corrección por objeto y conservar controles de nueva foto/cancelación. Evitar insertar etiquetas remotas como HTML.
-- [ ] Ejecutar pruebas Node y comprobar en navegador el flujo con simulador: tres LEDs activos, una confirmación parcial, error en otra ubicación y finalización conjunta. Commit de esta unidad.
+- [x] Añadir pruebas de coordenadas de cuadros expresadas en porcentaje según `image_size`, resultados mixtos, categorías duplicadas y eventos de otra operación con iguales categorías. La confirmación parcial no debe llamar a `resetToCapture`.
+- [x] Ejecutar las pruebas Node y confirmar fallos por el comportamiento nuevo.
+- [x] Mostrar fotografía anotada con cuadros y lista de objetos, incluidos rechazados. Dibujar sobre la imagen con dimensiones relativas para mantener alineación en celular y escritorio.
+- [x] Adaptar el mapa a múltiples objetivos y mostrar «N de M ubicaciones confirmadas». Mostrar posiciones bloqueadas/equivocadas sin ocultar el progreso correcto; terminar solo con `phase: returned` de esta operación.
+- [x] Añadir corrección por objeto y conservar controles de nueva foto/cancelación. Evitar insertar etiquetas remotas como HTML.
+- [x] Ejecutar pruebas Node y comprobar en navegador el flujo con simulador: tres LEDs activos, una confirmación parcial, error en otra ubicación y finalización conjunta. Commit de esta unidad.
 
 ### Task 5: Verificación completa y documentación
 
