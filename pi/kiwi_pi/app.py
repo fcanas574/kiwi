@@ -225,6 +225,7 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
         item = state['photos'].get(body.photo_id)
         st = station()
         require_no_continuous_scan()
+        scan_generation = scan().snapshot()['generation']
         state['active_photo_id'] = body.photo_id
         st.cancel_guide()   # una foto nueva apaga la señal anterior
         version = st.recognition_version
@@ -234,6 +235,9 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
         except RecognizerError as exc:
             await st.refresh_health()
             return {'status': 'error', 'reason': str(exc)}
+        require_no_continuous_scan()
+        if scan_generation != scan().snapshot()['generation']:
+            raise HTTPException(409, 'El escaneo cambió mientras se reconocía la foto.')
         if version != st.recognition_version:
             return {'status': 'error', 'reason': 'Reconocimiento cancelado o reemplazado por otra foto.'}
         try:

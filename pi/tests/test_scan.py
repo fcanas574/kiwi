@@ -259,7 +259,30 @@ def test_pause_does_not_disable_sensors(cfg):
 
 
 def test_sensor_changes_processed_while_colab_waits(cfg):
-    test_pause_does_not_disable_sensors(cfg)
+    async def case(scan, station, recognizer):
+        started, release = Event(), Event()
+        recognizer.detect_started = started
+        recognizer.detect_release = release
+        station.sensors.state[1] = False
+        station.add_guides([cfg.slot_by_id(1)], 'running-cycle')
+        session = scan.start('phone')
+        pending = asyncio.create_task(process(scan, session, 1))
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            assert scan.snapshot()['busy'] is True
+            assert scan.snapshot()['capture_state'] == 'running'
+            station.sensors.state[1] = True
+            await station.on_sensor(1, False, True)
+            assert station.confirmed == {1}
+            assert not station.pending
+            assert scan.snapshot()['busy'] is True
+            assert scan.snapshot()['capture_state'] == 'running'
+        finally:
+            release.set()
+            await pending
+        assert scan.snapshot()['capture_state'] == 'running'
+
+    run_case(case, cfg)
 
 
 def test_completed_visible_category_is_suppressed(cfg):

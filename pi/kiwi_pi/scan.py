@@ -40,6 +40,8 @@ class _FrozenCorrection:
     crop: bytes
     metadata: dict
     expires_at_clock: float
+    owner: str | None
+    generation: int
 
 
 class _StaleGeneration(Exception):
@@ -313,6 +315,8 @@ class ScanCoordinator:
                 'recognition': item.get('recognition'),
             },
             expires_at_clock=expires_at_clock,
+            owner=self._owner,
+            generation=self._generation + 1,
         )
         # Validate first, then pause and advance generation as one synchronous
         # event-loop operation. The crop remains independent of later frames.
@@ -332,6 +336,11 @@ class ScanCoordinator:
 
     def submit_correction(self, correction_id: str, actual: str) -> dict:
         correction = self._get_correction(correction_id)
+        if (correction.metadata['session_id'] != self._session_id
+                or correction.generation != self._generation
+                or correction.owner != self._owner
+                or self._capture_state != 'paused'):
+            raise ScanError(409, 'La corrección ya no controla la sesión actual.')
         valid = {slot.category for slot in self.cfg.slots} | {'otros'}
         if not isinstance(actual, str) or actual not in valid:
             raise ScanError(400, 'Etiqueta desconocida.')

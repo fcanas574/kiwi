@@ -48,11 +48,22 @@ def register_scan_routes(app: FastAPI, get_scan: Callable[[], ScanCoordinator], 
     paired_owners: OrderedDict[str, tuple[str, float]] = OrderedDict()
     correction_owners: dict[str, str] = {}
 
-    def paired_owner(request: Request) -> str:
+    def pause_owner(owner: str) -> None:
+        scan = get_scan()
+        session_id = scan.snapshot()['session_id']
+        if session_id is not None and scan.owns(owner, session_id):
+            scan.pause(session_id)
+
+    def purge_expired_pairings() -> None:
         now = time.time()
-        for token, (_, expires_at) in list(paired_owners.items()):
+        for token, (owner, expires_at) in list(paired_owners.items()):
             if expires_at <= now:
                 paired_owners.pop(token, None)
+                # Release expired capture authority without ending the return cycle.
+                pause_owner(owner)
+
+    def paired_owner(request: Request) -> str:
+        purge_expired_pairings()
         token = request.cookies.get(PAIR_COOKIE)
         entry = paired_owners.get(token or '')
         if entry is None:
@@ -74,7 +85,7 @@ def register_scan_routes(app: FastAPI, get_scan: Callable[[], ScanCoordinator], 
         return HTTPException(exc.status_code, exc.detail)
 
     @app.post('/api/scan/pair')
-    async def pair(body: PairBody, response: Response):
+    async def pair(body: PairBody, response: Response, request: Request):
         pairing_key = getattr(cfg, 'scan_pairing_key', '')
         if not pairing_key:
             raise HTTPException(503, 'Configura KIWI_SCAN_PAIRING_KEY en la estación.')
@@ -82,11 +93,18 @@ def register_scan_routes(app: FastAPI, get_scan: Callable[[], ScanCoordinator], 
             raise HTTPException(503, 'KIWI_SCAN_PAIRING_KEY debe ser distinto de KIWI_API_KEY.')
         if not hmac.compare_digest(body.code.encode('utf-8'), pairing_key.encode('utf-8')):
             raise HTTPException(401, 'Código de emparejamiento incorrecto.')
+        purge_expired_pairings()
+        previous = paired_owners.pop(request.cookies.get(PAIR_COOKIE, ''), None)
         token = secrets.token_urlsafe(32)
-        owner = secrets.token_hex(16)
+        owner = previous[0] if previous else secrets.token_hex(16)
+        if previous:
+            # Rotation retains this phone's correction ownership, but requires
+            # an explicit start with a new generation before sending frames.
+            pause_owner(owner)
         paired_owners[token] = (owner, time.time() + 43_200)
         while len(paired_owners) > 64:
-            paired_owners.popitem(last=False)
+            _, (evicted_owner, _) = paired_owners.popitem(last=False)
+            pause_owner(evicted_owner)
         response.set_cookie(PAIR_COOKIE, token, max_age=43_200, httponly=True,
                             secure=True, samesite='strict', path='/api/scan')
         return {'paired': True}
