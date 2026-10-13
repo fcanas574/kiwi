@@ -28,7 +28,32 @@
       <div class="col">
         <p class="eyebrow"><span class="bullet"></span>Key Week · Taller SPARK</p>
         <h1>¿Dónde van estas herramientas?</h1>
-        <p class="lead">Toma una foto con las herramientas y encuentra sus lugares.</p>
+        <p class="lead">Presenta las herramientas frente al celular y encuentra sus lugares.</p>
+        <details class="pairing-panel" id="pairingPanel" open>
+          <summary>Emparejar este teléfono</summary>
+          <form id="pairForm" novalidate>
+            <label for="pairCode">Código de la estación</label>
+            <div class="pair-code-row">
+              <input id="pairCode" name="pairingCode" type="password" inputmode="text"
+                     autocomplete="one-time-code" autocapitalize="off" spellcheck="false"
+                     aria-describedby="pairStatus">
+              <button class="btn btn-secondary btn-small" id="togglePairCode" type="button"
+                      aria-controls="pairCode" aria-pressed="false">Mostrar código</button>
+            </div>
+            <button class="btn btn-primary btn-small" id="pairBtn" type="submit">Emparejar teléfono</button>
+            <p class="scan-note" id="pairStatus" role="status" aria-live="polite">
+              El código solo se envía a esta estación y no se guarda en el navegador.
+            </p>
+          </form>
+        </details>
+        <div class="scan-actions" aria-label="Controles del escaneo continuo">
+          <button class="btn btn-primary scan-action" id="scanStartBtn" type="button">Iniciar escaneo</button>
+          <button class="btn btn-secondary scan-action" id="scanPauseBtn" type="button" disabled>Pausar escaneo</button>
+          <button class="btn btn-danger scan-action" id="scanCancelBtn" type="button" disabled>Cancelar devoluciones</button>
+        </div>
+        <p class="scan-status" id="scanStatus" role="status" aria-live="polite">
+          Escaneo pausado. Empareja el teléfono y toca «Iniciar escaneo».
+        </p>
         <label class="endpoint" for="endpointInput">
           <span class="eyebrow"><span class="bullet"></span>Endpoint de Colab</span>
           <input id="endpointInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" readonly>
@@ -36,29 +61,72 @@
         </label>
       </div>
       <div class="col col-main">
-        <div class="viewer" id="viewer">
-          <img id="streamImg" alt="" hidden>
-          <video id="video" autoplay playsinline muted hidden></video>
-          <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
-            <path d="M14 30l24 30-24 30M106 30l-24 30 24 30M30 10l30 22 30-22M30 110l30-22 30 22"/>
-          </svg>
-          <span class="corner tl"></span><span class="corner tr"></span>
-          <span class="corner bl"></span><span class="corner br"></span>
-          <span class="viewer-caption" id="viewerCaption">Vista de la cámara</span>
-          <div class="busy" id="captureBusy" hidden><span class="spinner"></span></div>
+        <div class="scan-console" id="scanConsole">
+          <div class="scan-previews">
+            <figure class="scan-frame-card">
+              <figcaption>Vista en vivo · cámara trasera</figcaption>
+              <div class="scan-live-viewer" id="scanLiveViewer">
+                <video id="scanVideo" autoplay playsinline muted hidden></video>
+                <span class="scan-camera-prompt" id="scanCameraPrompt">La cámara se activa al iniciar el escaneo.</span>
+                <span class="corner tl"></span><span class="corner tr"></span>
+                <span class="corner bl"></span><span class="corner br"></span>
+              </div>
+            </figure>
+            <figure class="scan-frame-card">
+              <figcaption>Último cuadro analizado</figcaption>
+              <div class="scan-analyzed-image" id="scanAnalyzedImageWrap">
+                <img id="scanAnalyzedImage" alt="Último cuadro enviado a la estación" hidden>
+                <div class="boxes" id="scanAnalyzedBoxes"></div>
+                <span class="scan-empty-frame" id="scanEmptyFrame">Aún no hay cuadros analizados.</span>
+              </div>
+              <p class="scan-frame-caption" id="scanFrameCaption">El análisis conserva la imagen exacta de cada respuesta.</p>
+            </figure>
+          </div>
+          <div class="scan-readout">
+            <div class="scan-track-heading">
+              <h2>Herramientas observadas</h2>
+              <span id="scanTrackCount">0</span>
+            </div>
+            <ol class="scan-track-list" id="scanTrackList" aria-label="Seguimiento y clasificación de herramientas">
+              <li class="scan-empty-track">Presenta una herramienta dentro del encuadre.</li>
+            </ol>
+            <div class="scan-map-wrap">
+              <div class="scan-track-heading">
+                <h2>Progreso de devoluciones</h2>
+                <span id="scanGuideProgress">Sin devoluciones activas</span>
+              </div>
+              <div class="map scan-map" id="scanMap" role="img" aria-label="Mapa persistente del organizador"></div>
+              <p class="scan-note" id="scanGuideNote">El mapa y las guías se conservan al pausar el escaneo.</p>
+            </div>
+          </div>
         </div>
-        <div class="tiles">
-          <button class="tile tile-purple" id="takeBtn" type="button">
-            <strong>Tomar foto</strong>
-            <span>Con la cámara<br>del dispositivo</span>
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1 1l18 18M19 5v14H5"/></svg>
-          </button>
-          <button class="tile tile-green" id="uploadBtn" type="button">
-            <strong>Subir foto</strong>
-            <span>Desde tu galería<br>o archivos</span>
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1 1l18 18M19 5v14H5"/></svg>
-          </button>
-        </div>
+        <details class="manual-panel" id="manualCapturePanel">
+          <summary>Usar captura manual · una foto</summary>
+          <p class="scan-note" id="manualScanNote">La captura manual queda bloqueada mientras haya una guía continua activa.</p>
+          <div class="viewer" id="viewer">
+            <img id="streamImg" alt="" hidden>
+            <video id="video" autoplay playsinline muted hidden></video>
+            <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
+              <path d="M14 30l24 30-24 30M106 30l-24 30 24 30M30 10l30 22 30-22M30 110l30-22 30 22"/>
+            </svg>
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <span class="viewer-caption" id="viewerCaption">Abre la cámara o elige una foto</span>
+            <div class="busy" id="captureBusy" hidden><span class="spinner"></span></div>
+          </div>
+          <div class="tiles">
+            <button class="tile tile-purple" id="takeBtn" type="button">
+              <strong>Tomar foto</strong>
+              <span>Con la cámara<br>del dispositivo</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1 1l18 18M19 5v14H5"/></svg>
+            </button>
+            <button class="tile tile-green" id="uploadBtn" type="button">
+              <strong>Subir foto</strong>
+              <span>Desde tu galería<br>o archivos</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1 1l18 18M19 5v14H5"/></svg>
+            </button>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -123,8 +191,20 @@
     <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="labelSheetTitle">
       <p class="eyebrow"><span class="bullet"></span>Ayúdanos a mejorar</p>
       <h2 id="labelSheetTitle">¿Qué era?</h2>
+      <img class="scan-correction-crop" id="scanCorrectionCrop" alt="Recorte congelado del objeto que vas a corregir" hidden>
+      <p class="scan-note" id="scanCorrectionNote" hidden>La cámara está pausada. Si cancelas, las guías actuales se conservan.</p>
       <div class="sheet-options" id="labelOptions"></div>
       <button class="btn btn-secondary btn-small" id="labelCancel" type="button">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="cancelScanSheet" hidden>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="cancelScanTitle" aria-describedby="cancelScanDescription">
+      <p class="eyebrow"><span class="bullet"></span>Cancelar devoluciones</p>
+      <h2 id="cancelScanTitle">¿Borrar el progreso de este ciclo?</h2>
+      <p class="scan-note" id="cancelScanDescription">Se apagarán las luces y se quitarán las ubicaciones pendientes. El escaneo también se pausará.</p>
+      <button class="btn btn-secondary btn-small" id="keepScanBtn" type="button">Seguir escaneando</button>
+      <button class="btn btn-danger btn-small" id="confirmCancelScanBtn" type="button">Cancelar devoluciones</button>
     </div>
   </div>
 
@@ -152,6 +232,8 @@
   <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
 </div>
 <script src="/static/multiobject.js"></script>
+<script src="/static/scan.js"></script>
+<script src="/static/scan-view.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

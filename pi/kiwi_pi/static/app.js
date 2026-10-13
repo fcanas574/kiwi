@@ -15,7 +15,32 @@ const state = {
   mediaStream: null,
   recognitionVersion: 0,
   recognizing: false,
+  scanCameraMessage: '',
+  scanControlBusy: false,
+  scanRecoverAfterReconnect: false,
+  scanCorrection: null,
+  scanCorrectionBusy: false,
+  cancelScanFocus: null,
+  manualLocked: false,
+  manualCaptureBusy: false,
 };
+
+const scanTransport = KiwiScan.createBrowserTransport();
+const scanCamera = KiwiScan.createBrowserCamera($('#scanVideo'), {
+  onMessage(message) { state.scanCameraMessage = message; renderScan(); },
+});
+state.scanController = KiwiScan.createController({
+  transport: scanTransport,
+  camera: scanCamera,
+  onState: renderScan,
+});
+const scanView = KiwiScanView.create({
+  controller: state.scanController,
+  getStatus: () => state.status,
+  getCameraMessage: () => state.scanCameraMessage,
+  getBusy: () => state.scanControlBusy,
+  onCorrect: openScanCorrection,
+});
 
 // ---------- utilidades ----------
 async function api(path, options = {}) {
@@ -40,13 +65,13 @@ function toast(message, ms = 3200) {
 
 function setLoading(button, loading) {
   button.classList.toggle('loading', loading);
-  button.disabled = loading;
+  button.disabled = loading || state.manualLocked;
 }
 
 function go(screen) {
   state.screen = screen;
   app.dataset.screen = screen;
-  if (screen === 'capture') startBrowserCamera();
+  if (screen === 'capture') setupViewer();
   else stopBrowserCamera();
 }
 
@@ -54,6 +79,7 @@ function go(screen) {
 function applyStatus(snapshot) {
   state.status = { ...(state.status || {}), ...snapshot };
   const s = state.status;
+  if (s.scan) scanTransport.publishSnapshot(s.scan);
 
   const pill = $('#apiPill');
   const simulated = s.drivers && s.drivers.recognizer === 'mock';
@@ -67,6 +93,8 @@ function applyStatus(snapshot) {
   }
   input.readOnly = !s.admin || simulated;
 
+  updateManualLock();
+  renderScan();
   if (state.screen === 'result') renderGuide();
   if (!$('#diag').hidden) renderDiag();
 }
@@ -81,9 +109,63 @@ async function loadStatus() {
 
 function connectEvents() {
   const source = new EventSource('/api/events');
+  let hasOpened = false;
   source.onmessage = (event) => applyStatus(JSON.parse(event.data));
-  source.onerror = () => { $('#apiText').textContent = 'Reconectando…'; };
-  source.onopen = () => loadStatus();
+  source.onerror = () => {
+    $('#apiText').textContent = 'Reconectando…';
+    if (hasOpened && state.scanController.getState().capture_state === 'running') {
+      state.scanRecoverAfterReconnect = true;
+      state.scanController.pause().catch(() => {});
+    }
+  };
+  source.onopen = async () => {
+    const reconnect = hasOpened;
+    hasOpened = true;
+    await loadStatus();
+    if (reconnect && state.scanRecoverAfterReconnect) {
+      if (document.hidden) {
+        state.scanRecoverAfterReconnect = false;
+        return;
+      }
+      state.scanRecoverAfterReconnect = false;
+      state.scanControlBusy = true;
+      renderScan();
+      try {
+        await state.scanController.start({ advanceGeneration: true });
+      } catch (error) {
+        if (error.status === 401) $('#pairingPanel').open = true;
+        toast(error.message);
+      } finally {
+        state.scanControlBusy = false;
+        renderScan();
+      }
+    }
+  };
+}
+
+function updateManualLock() {
+  const scan = state.scanController.getState();
+  const guide = scan.guide || (state.status && state.status.guide) || {};
+  const locked = scan.capture_state === 'running' || Boolean(guide.continuous);
+  state.manualLocked = locked;
+  const note = $('#manualScanNote');
+  if (note) note.textContent = locked
+    ? 'La captura manual está bloqueada mientras una guía continua conserva ubicaciones.'
+    : 'La captura manual inicia una foto independiente.';
+  const panel = $('#manualCapturePanel');
+  if (panel) panel.setAttribute('aria-disabled', String(locked));
+  for (const selector of ['#takeBtn', '#uploadBtn', '#sendBtn', '#retakeBtn', '#nextBtn', '#wrongBtn']) {
+    const button = $(selector);
+    if (button) button.disabled = locked || button.classList.contains('loading')
+      || (state.manualCaptureBusy && (selector === '#takeBtn' || selector === '#uploadBtn'));
+  }
+  $('#fileInput').disabled = locked;
+  $('#cameraInput').disabled = locked;
+}
+
+function renderScan(scan = state.scanController.getState()) {
+  scanView.render(scan);
+  updateManualLock();
 }
 
 // ---------- cámara ----------
@@ -97,7 +179,9 @@ function setupViewer() {
     img.onerror = () => { viewer.classList.remove('live'); img.hidden = true; };
     return;
   }
-  startBrowserCamera();
+  img.hidden = true;
+  viewer.classList.remove('live');
+  $('#viewerCaption').textContent = 'Tomar foto abre la cámara del dispositivo';
 }
 
 async function startBrowserCamera() {
@@ -169,8 +253,11 @@ async function uploadBlob(blob, source) {
 }
 
 async function withCaptureBusy(task) {
+  if (state.manualLocked) return;
   const busy = $('#captureBusy');
   const buttons = [$('#takeBtn'), $('#uploadBtn')];
+  state.manualCaptureBusy = true;
+  updateManualLock();
   busy.hidden = false;
   buttons.forEach((b) => { b.disabled = true; });
   try {
@@ -180,11 +267,13 @@ async function withCaptureBusy(task) {
     toast(error.message);
   } finally {
     busy.hidden = true;
-    buttons.forEach((b) => { b.disabled = false; });
+    state.manualCaptureBusy = false;
+    updateManualLock();
   }
 }
 
 function takePhoto() {
+  if (state.manualLocked) return;
   const s = state.status || {};
   if (s.camera_available) {
     flash();
@@ -200,6 +289,7 @@ function takePhoto() {
 }
 
 function onFilePicked(input, source) {
+  if (state.manualLocked) return;
   const file = input.files && input.files[0];
   input.value = '';
   if (!file) return;
@@ -207,6 +297,7 @@ function onFilePicked(input, source) {
 }
 
 async function afterPhoto(photo) {
+  if (state.manualLocked) return;
   state.recognitionVersion += 1;
   state.photo = photo;
   state.result = null;
@@ -222,6 +313,7 @@ async function afterPhoto(photo) {
 
 // ---------- reconocimiento ----------
 async function send() {
+  if (state.manualLocked) return;
   if (!state.photo) return;
   const photoId = state.photo.photo_id;
   const request = ++state.recognitionVersion;
@@ -354,6 +446,7 @@ function renderGuide() {
 }
 
 async function primaryResultAction() {
+  if (state.manualLocked) return;
   const r = state.result;
   if (r && r.status === 'error') return retrySend();
   const button = $('#nextBtn');
@@ -369,6 +462,7 @@ async function primaryResultAction() {
 }
 
 async function retrySend() {
+  if (state.manualLocked) return;
   if (!state.photo) return;
   const photoId = state.photo.photo_id;
   const request = ++state.recognitionVersion;
@@ -391,31 +485,166 @@ async function retrySend() {
 }
 
 async function secondaryResultAction() {
+  if (state.manualLocked) return;
   try { await postJSON('/api/next', {photo_id: state.photo?.photo_id}); }
   catch (error) { toast(error.message); return; }
   resetToCapture();
 }
 
-function openLabelSheet(object) {
-  state.correctionObjectId = object.id;
-  state.correctionFocus = document.activeElement;
-  $('#labelSheetTitle').textContent = `¿Qué era el objeto ${object.id}?`;
+function fillCorrectionOptions(currentCategory, onSelect) {
   const options = $('#labelOptions');
   const slots = (state.status && state.status.slots) || [];
-  const buttons = slots
-    .filter((slot) => !state.result || slot.category !== object.category)
-    .map((slot) => [slot.label, slot.category, '']);
-  buttons.push(['No es una herramienta del taller', 'otros', 'other']);
-  options.replaceChildren(...buttons.map(([label, category, cls]) => {
+  const choices = slots.filter(slot => slot.category !== currentCategory)
+    .map(slot => [slot.label, slot.category, '']);
+  choices.push(['No es una herramienta del taller', 'otros', 'other']);
+  options.replaceChildren(...choices.map(([label, category, cls]) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
     if (cls) button.className = cls;
-    button.onclick = () => submitCorrection(category);
+    button.addEventListener('click', () => onSelect(category));
     return button;
   }));
+}
+
+function openLabelSheet(object) {
+  state.scanCorrection = null;
+  state.correctionObjectId = object.id;
+  state.correctionFocus = document.activeElement;
+  $('#scanCorrectionCrop').hidden = true;
+  $('#scanCorrectionNote').hidden = true;
+  $('#labelSheetTitle').textContent = `¿Qué era el objeto ${object.id}?`;
+  fillCorrectionOptions(object.category, submitCorrection);
+  $('main').inert = true;
   $('#labelSheet').hidden = false;
-  $('#labelOptions').querySelector('button')?.focus();
+  $('#labelOptions').querySelector('button:not(:disabled)')?.focus();
+}
+
+function closeScanCorrectionSurface() {
+  const correction = state.scanCorrection;
+  if (correction && correction.url) URL.revokeObjectURL(correction.url);
+  state.scanCorrection = null;
+  state.scanCorrectionBusy = false;
+  $('#scanCorrectionCrop').removeAttribute('src');
+  $('#scanCorrectionCrop').hidden = true;
+  $('#scanCorrectionNote').hidden = true;
+  $('#labelSheet').hidden = true;
+  $('main').inert = false;
+  const target = state.correctionFocus;
+  state.correctionFocus = null;
+  if (target && target.isConnected) target.focus();
+  else $('#scanStartBtn').focus();
+}
+
+async function openScanCorrection(track) {
+  const scan = state.scanController.getState();
+  const frame = scan.last_analyzed_frame;
+  if (!frame || track.frame_id !== frame.sequence || !scan.session_id || state.scanCorrectionBusy) return;
+
+  state.correctionFocus = document.activeElement;
+  state.scanCorrectionBusy = true;
+  state.scanControlBusy = true;
+  state.scanController.suspend();
+  renderScan();
+  let correctionId = null;
+  try {
+    const prepared = await scanTransport.prepareCorrection({
+      session_id: scan.session_id,
+      track_id: track.track_id,
+      revision: track.revision,
+    });
+    correctionId = prepared.correction_id;
+    state.scanController.syncFromServer({
+      ...state.scanController.getState(),
+      generation: prepared.generation,
+      capture_state: 'paused',
+      busy: false,
+      tracks: [],
+    });
+    const crop = await scanTransport.correctionCrop(correctionId);
+    const url = URL.createObjectURL(crop);
+    state.scanCorrection = { correction_id: correctionId, url, track_id: track.track_id };
+    $('#labelSheetTitle').textContent = `Corrige el objeto ${track.track_id}`;
+    $('#scanCorrectionCrop').src = url;
+    $('#scanCorrectionCrop').hidden = false;
+    $('#scanCorrectionNote').textContent = 'La cámara está pausada. Si cancelas, las guías actuales se conservan.';
+    $('#scanCorrectionNote').dataset.tone = '';
+    $('#scanCorrectionNote').hidden = false;
+    fillCorrectionOptions(track.category, submitScanCorrection);
+    $('main').inert = true;
+    $('#labelSheet').hidden = false;
+    $('#labelOptions').querySelector('button:not(:disabled)')?.focus();
+  } catch (error) {
+    if (correctionId) {
+      try { await scanTransport.cancelCorrection(correctionId); } catch { /* server expiry cleanup owns this copy */ }
+    }
+    state.correctionFocus = null;
+    state.scanControlBusy = false;
+    state.scanCorrectionBusy = false;
+    toast(error.message);
+    await loadStatus();
+    if (state.status?.scan?.capture_state === 'running') {
+      try { await state.scanController.start({ advanceGeneration: true }); } catch { /* connection state stays visible */ }
+    }
+    if (error.status === 401) $('#pairingPanel').open = true;
+    renderScan();
+  } finally {
+    state.scanControlBusy = false;
+    state.scanCorrectionBusy = false;
+    renderScan();
+  }
+}
+
+async function cancelScanCorrection() {
+  const correction = state.scanCorrection;
+  if (!correction || state.scanCorrectionBusy) return;
+  state.scanCorrectionBusy = true;
+  const buttons = [...$('#labelSheet').querySelectorAll('button')];
+  buttons.forEach(button => { button.disabled = true; });
+  try {
+    await scanTransport.cancelCorrection(correction.correction_id);
+    closeScanCorrectionSurface();
+    await loadStatus();
+  } catch (error) {
+    if (error.status === 404 || error.status === 410) {
+      closeScanCorrectionSurface();
+      toast(error.message);
+      await loadStatus();
+      return;
+    }
+    $('#scanCorrectionNote').textContent = error.message;
+    $('#scanCorrectionNote').dataset.tone = 'error';
+    $('#scanCorrectionNote').hidden = false;
+    buttons.forEach(button => { button.disabled = false; });
+    state.scanCorrectionBusy = false;
+  }
+}
+
+async function submitScanCorrection(actual) {
+  const correction = state.scanCorrection;
+  if (!correction || state.scanCorrectionBusy) return;
+  state.scanCorrectionBusy = true;
+  const buttons = [...$('#labelSheet').querySelectorAll('button')];
+  buttons.forEach(button => { button.disabled = true; });
+  try {
+    await scanTransport.submitCorrection({ correction_id: correction.correction_id, actual });
+    closeScanCorrectionSurface();
+    await loadStatus();
+    toast('Corrección guardada. El ciclo se canceló y el escaneo permanece pausado.');
+  } catch (error) {
+    if (error.status === 404 || error.status === 410) {
+      closeScanCorrectionSurface();
+      toast(error.message);
+      await loadStatus();
+      return;
+    }
+    $('#scanCorrectionNote').textContent = error.message;
+    $('#scanCorrectionNote').dataset.tone = 'error';
+    $('#scanCorrectionNote').hidden = false;
+    buttons.forEach(button => { button.disabled = false; });
+    state.scanCorrectionBusy = false;
+    if (error.status === 401) $('#pairingPanel').open = true;
+  }
 }
 
 async function submitCorrection(actual) {
@@ -423,6 +652,7 @@ async function submitCorrection(actual) {
   try {
     await postJSON('/api/reject', { photo_id: state.photo.photo_id, object_id: state.correctionObjectId, actual });
     toast('Gracias. Guardamos el recorte para mejorar el reconocimiento.');
+    $('main').inert = false;
     resetToCapture();
   } catch (error) {
     toast(error.message);
@@ -431,11 +661,123 @@ async function submitCorrection(actual) {
 }
 
 function closeLabelSheet() {
+  if (state.scanCorrection) {
+    void cancelScanCorrection();
+    return;
+  }
   $('#labelSheet').hidden = true;
+  $('main').inert = false;
   state.correctionFocus?.focus();
+  state.correctionFocus = null;
+}
+
+async function pairPhone(event) {
+  event.preventDefault();
+  const input = $('#pairCode');
+  const code = input.value;
+  if (!code.trim()) {
+    $('#pairStatus').textContent = 'Escribe el código de emparejamiento de la estación.';
+    input.focus();
+    return;
+  }
+  if (!window.isSecureContext) {
+    $('#pairStatus').textContent = 'El emparejamiento requiere HTTPS con un certificado confiable.';
+    input.focus();
+    return;
+  }
+  const button = $('#pairBtn');
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  $('#pairStatus').textContent = 'Emparejando este teléfono…';
+  try {
+    await scanTransport.pair(code);
+    $('#pairStatus').textContent = 'Teléfono emparejado. Toca «Iniciar escaneo» cuando quieras comenzar.';
+    $('#pairingPanel').open = false;
+    toast('Teléfono emparejado.');
+    await loadStatus();
+  } catch (error) {
+    $('#pairStatus').textContent = error.message;
+    $('#pairStatus').dataset.tone = 'error';
+  } finally {
+    input.value = '';
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+  }
+}
+
+async function startContinuousScan(options = {}) {
+  if (state.scanControlBusy) return;
+  state.scanControlBusy = true;
+  state.scanCameraMessage = '';
+  renderScan();
+  try {
+    await state.scanController.start(options);
+  } catch (error) {
+    if (error.status === 401) {
+      $('#pairingPanel').open = true;
+      $('#pairCode').focus();
+    }
+    toast(error.message);
+  } finally {
+    state.scanControlBusy = false;
+    renderScan();
+  }
+}
+
+async function pauseContinuousScan() {
+  if (state.scanControlBusy) return;
+  state.scanControlBusy = true;
+  renderScan();
+  try {
+    await state.scanController.pause();
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    state.scanControlBusy = false;
+    renderScan();
+  }
+}
+
+function openCancelScanSheet() {
+  if (state.scanControlBusy) return;
+  state.cancelScanFocus = document.activeElement;
+  $('main').inert = true;
+  $('#cancelScanSheet').hidden = false;
+  $('#keepScanBtn').focus();
+}
+
+function closeCancelScanSheet() {
+  $('#cancelScanSheet').hidden = true;
+  $('main').inert = false;
+  const trigger = state.cancelScanFocus;
+  state.cancelScanFocus = null;
+  if (trigger && trigger.isConnected) trigger.focus();
+  else $('#scanCancelBtn').focus();
+}
+
+async function confirmCancelScan() {
+  if (state.scanControlBusy) return;
+  state.scanControlBusy = true;
+  $('#confirmCancelScanBtn').disabled = true;
+  $('#confirmCancelScanBtn').textContent = 'Cancelando…';
+  renderScan();
+  try {
+    await state.scanController.cancel();
+    closeCancelScanSheet();
+    await loadStatus();
+    toast('Devoluciones canceladas. El escaneo quedó pausado.');
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    state.scanControlBusy = false;
+    $('#confirmCancelScanBtn').disabled = false;
+    $('#confirmCancelScanBtn').textContent = 'Cancelar devoluciones';
+    renderScan();
+  }
 }
 
 function resetToCapture() {
+  if (state.manualLocked) return;
   const wasRecognizing = state.recognizing;
   const canceledPhotoId = state.photo?.photo_id;
   state.recognitionVersion += 1;
@@ -555,15 +897,44 @@ $('#endpointInput').addEventListener('change', saveEndpoint);
 $('#endpointInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 $('#diagClose').addEventListener('click', () => { $('#diag').hidden = true; });
 $('#labelCancel').addEventListener('click', closeLabelSheet);
+$('#pairForm').addEventListener('submit', pairPhone);
+$('#togglePairCode').addEventListener('click', () => {
+  const input = $('#pairCode');
+  const shown = input.type === 'password';
+  input.type = shown ? 'text' : 'password';
+  $('#togglePairCode').textContent = shown ? 'Ocultar código' : 'Mostrar código';
+  $('#togglePairCode').setAttribute('aria-pressed', String(shown));
+  input.focus();
+});
+$('#pairCode').addEventListener('input', () => {
+  $('#pairStatus').dataset.tone = '';
+});
+$('#scanStartBtn').addEventListener('click', () => startContinuousScan());
+$('#scanPauseBtn').addEventListener('click', pauseContinuousScan);
+$('#scanCancelBtn').addEventListener('click', openCancelScanSheet);
+$('#keepScanBtn').addEventListener('click', closeCancelScanSheet);
+$('#confirmCancelScanBtn').addEventListener('click', confirmCancelScan);
+$('#labelSheet').addEventListener('click', (event) => {
+  if (event.target === $('#labelSheet')) closeLabelSheet();
+});
+$('#cancelScanSheet').addEventListener('click', (event) => {
+  if (event.target === $('#cancelScanSheet')) closeCancelScanSheet();
+});
 document.addEventListener('keydown', (event) => {
-  if ($('#labelSheet').hidden) return;
-  if (event.key === 'Escape') { event.preventDefault(); closeLabelSheet(); }
-  if (event.key === 'Tab') {
-    const buttons = [...$('#labelSheet').querySelectorAll('button')];
-    const index = buttons.indexOf(document.activeElement);
-    if (event.shiftKey && index <= 0) { event.preventDefault(); buttons.at(-1).focus(); }
-    else if (!event.shiftKey && index === buttons.length - 1) { event.preventDefault(); buttons[0].focus(); }
+  const modal = !$('#labelSheet').hidden ? $('#labelSheet')
+    : !$('#cancelScanSheet').hidden ? $('#cancelScanSheet') : null;
+  if (!modal) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    if (modal.id === 'labelSheet') closeLabelSheet();
+    else closeCancelScanSheet();
   }
+  if (event.key !== 'Tab') return;
+  const buttons = [...modal.querySelectorAll('button:not(:disabled)')];
+  if (!buttons.length) return;
+  const index = buttons.indexOf(document.activeElement);
+  if (event.shiftKey && index <= 0) { event.preventDefault(); buttons.at(-1).focus(); }
+  else if (!event.shiftKey && index === buttons.length - 1) { event.preventDefault(); buttons[0].focus(); }
 });
 $('#ledTestBtn').addEventListener('click', () => postJSON('/api/leds/test').catch((e) => toast(e.message)));
 $('#ledOffBtn').addEventListener('click', () => postJSON('/api/leds/off').catch((e) => toast(e.message)));
@@ -572,10 +943,32 @@ $('#forceSelect').addEventListener('change', (e) => {
 });
 $('#brand').addEventListener('click', openDiag);
 document.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden || state.scanController.getState().capture_state !== 'running') return;
+  state.scanRecoverAfterReconnect = false;
+  state.scanController.pause().catch(() => {});
+  scanCamera.stop();
+});
+window.addEventListener('pagehide', () => {
+  const scan = state.scanController.getState();
+  if (scan.capture_state === 'running') {
+    state.scanController.pause().finally(() => state.scanController.dispose());
+  } else {
+    state.scanController.dispose();
+  }
+});
 if (new URLSearchParams(location.search).has('diag')) setTimeout(openDiag, 300);
 
 (async function init() {
   await loadStatus();
   setupViewer();
+  if (state.status?.scan?.capture_state === 'running') {
+    try {
+      await state.scanController.pause();
+      $('#scanStatus').textContent = 'Escaneo pausado al volver a abrir la página. Toca «Iniciar escaneo» para continuar.';
+    } catch (error) {
+      if (error.status === 401) $('#pairingPanel').open = true;
+    }
+  }
   connectEvents();
 })();
