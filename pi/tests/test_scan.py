@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from kiwi_pi.scan import ScanCoordinator, ScanError
+from kiwi_pi.recognizer import MockRecognizer
 from kiwi_pi.station import Station
 from test_station import cfg as station_cfg, jpeg_bytes
 
@@ -115,6 +116,59 @@ def scan_frame_bytes():
     buffer = io.BytesIO()
     Image.new('RGB', (100, 100), 'red').save(buffer, 'JPEG')
     return buffer.getvalue()
+
+
+def test_actual_mock_scan_confirms_three_distinct_categories(cfg):
+    async def case():
+        scan, station, _ = make_scan(cfg, MockRecognizer(cfg))
+        try:
+            session = scan.start('phone')
+            for sequence in range(1, 7):
+                scan.clock.now = (sequence - 1) * .5
+                await process(scan, session, sequence)
+                if sequence == 3:
+                    assert station.pending == set()  # Qwen is still provisional.
+            assert station.pending == {1, 6, 7}
+            assert {track['category'] for track in scan.snapshot()['tracks']} == {
+                'digital_multimeter', 'servo_motor', 'solder'}
+        finally:
+            await scan.close()
+            await station.stop()
+    asyncio.run(case())
+
+
+def test_actual_mock_appending_fourth_keeps_tracks_and_sensor_progress(cfg):
+    async def case():
+        scan, station, recognizer = make_scan(cfg, MockRecognizer(cfg))
+        try:
+            session = scan.start('phone')
+            for sequence in range(1, 7):
+                scan.clock.now = (sequence - 1) * .5
+                await process(scan, session, sequence)
+            before = scan.snapshot()['tracks']
+            operation = station.operation_id
+            # Confirm one return while two destinations remain pending.
+            station.sensors.state[1] = True
+            await station.on_sensor(1, False, True)
+            recognizer.force = 'digital_multimeter,servo_motor,solder,oscilloscope'
+            scan.clock.now = 3
+            await process(scan, session, 7)
+            after = scan.snapshot()['tracks']
+            assert [(t['track_id'], t['revision'], t['box']) for t in after[:3]] == [
+                (t['track_id'], t['revision'], t['box']) for t in before]
+            for sequence in range(8, 11):
+                scan.clock.now = (sequence - 1) * .5
+                await process(scan, session, sequence)
+            assert station.operation_id == operation
+            assert station.confirmed == {1}
+            assert station.pending == {2, 6, 7}
+            assert set(station.targets) == {1, 2, 6, 7}
+            assert [t['category'] for t in scan.snapshot()['tracks']] == [
+                'digital_multimeter', 'servo_motor', 'solder', 'oscilloscope']
+        finally:
+            await scan.close()
+            await station.stop()
+    asyncio.run(case())
 
 
 def test_one_remote_inference_at_a_time(cfg):

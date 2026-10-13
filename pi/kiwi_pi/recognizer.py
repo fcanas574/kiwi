@@ -232,9 +232,13 @@ class MockRecognizer(Recognizer):
         categories = self.force.split(',') if self.force else ['digital_multimeter', 'servo_motor', 'solder']
         objects = []
         for i, category in enumerate(categories[:12], 1):
-            x1 = int((i - 1) * width / len(categories))
-            x2 = max(x1 + 1, int(i * width / len(categories)))
-            objects.append({'id': i, 'box': [x1, 0, min(width, x2), height],
+            # Fixed twelve-cell layout: appending a target must not move the
+            # existing detections and invalidate their geometric stability.
+            column, row = (i - 1) % 4, (i - 1) // 4
+            x1, y1 = int(column * width / 4), int(row * height / 3)
+            x2 = min(width, max(x1 + 1, int((column + 1) * width / 4)))
+            y2 = min(height, max(y1 + 1, int((row + 1) * height / 3)))
+            objects.append({'id': i, 'box': [x1, y1, x2, y2],
                             'detector_label': category, 'detector_score': .5})
         return {'correlation': correlation,
                 'result': {'image_size': [width, height], 'objects': objects,

@@ -14,7 +14,7 @@ from typing import Callable
 from PIL import Image, ImageOps
 
 from .config import Config, Slot
-from .recognizer import (Recognizer, RecognizerError, decide,
+from .recognizer import (MockRecognizer, Recognizer, RecognizerError, decide,
                          validate_classification, validate_detections)
 from .station import Station
 from .tracking import Tracker
@@ -248,6 +248,12 @@ class ScanCoordinator:
                     'track_id': candidate['track_id'],
                     'revision': candidate['revision'],
                 }
+                if isinstance(self.recognizer, MockRecognizer):
+                    # Mock crops carry no visual semantics. Use this frame's
+                    # detection identity, never the persistent track counter.
+                    detection = next(item for item in detections
+                                     if item['box'] == candidate['box'])
+                    classification_correlation['object_id'] = detection['id']
                 classification_started = time.perf_counter()
                 try:
                     classification_payload = await self.recognizer.classify(crop, classification_correlation)
