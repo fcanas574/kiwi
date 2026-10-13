@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ToolLighthouse</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,7 @@
 <body>
 <div class="app" id="app" data-screen="capture">
   <header class="topbar">
-    <button class="brand" id="brand" type="button" aria-label="ToolLighthouse. Mantén pulsado para diagnóstico">
+    <button class="brand" id="brand" type="button" aria-label="ToolLighthouse. Abrir diagnóstico">
       <span>ToolLighthouse</span>
       <svg viewBox="0 0 28 16" aria-hidden="true"><path d="M1 8h26M20 1l7 7-7 7"/></svg>
     </button>
@@ -27,8 +27,8 @@
     <section class="screen" id="screen-capture" aria-label="Paso 1: tomar la foto">
       <div class="col">
         <p class="eyebrow"><span class="bullet"></span>Key Week · Taller SPARK</p>
-        <h1>¿Dónde va esta herramienta?</h1>
-        <p class="lead">Muéstrala a la cámara y el taller te dirá dónde guardarla.</p>
+        <h1>¿Dónde van estas herramientas?</h1>
+        <p class="lead">Toma una foto con las herramientas y encuentra sus lugares.</p>
         <label class="endpoint" for="endpointInput">
           <span class="eyebrow"><span class="bullet"></span>Endpoint de Colab</span>
           <input id="endpointInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" readonly>
@@ -67,10 +67,10 @@
       <div class="col">
         <p class="eyebrow eyebrow-split"><span><span class="bullet"></span>Paso 2 de 3</span><span class="muted" id="photoSource">Desde la cámara</span></p>
         <h1>Revisa la foto</h1>
-        <p class="lead">Que la herramienta se vea completa y nítida.</p>
+        <p class="lead">Que todas las herramientas se vean completas y nítidas.</p>
         <div class="actions">
           <button class="btn btn-primary" id="sendBtn" type="button">
-            <span class="label">Enviar a la API</span>
+            <span class="label">Identificar herramientas</span>
             <svg viewBox="0 0 28 16" aria-hidden="true"><path d="M1 8h26M20 1l7 7-7 7"/></svg>
             <span class="spinner"></span>
           </button>
@@ -89,26 +89,28 @@
         <div class="card" id="resultCard">
           <p class="card-label" id="cardLabel">Herramienta reconocida</p>
           <p class="card-title" id="cardTitle">—</p>
-          <div class="meter" id="meter">
-            <div class="bar"><i id="meterFill"></i></div>
-            <span id="meterValue">—</span>
-          </div>
+
           <p class="card-note" id="cardNote" hidden></p>
         </div>
+        <div class="detection-photo" id="detectionPhoto" hidden>
+          <img id="resultPhoto" alt="Fotografía con los objetos detectados">
+          <div class="boxes" id="objectBoxes"></div>
+        </div>
+        <ol class="object-list" id="objectList" aria-label="Objetos detectados"></ol>
         <div class="where" id="where">
           <h2 id="locationText"></h2>
-          <p class="status" id="statusText" data-tone=""></p>
+          <p class="status" id="statusText" data-tone="" role="status" aria-live="polite"></p>
         </div>
       </div>
       <div class="col col-main">
         <div class="map" id="map" role="img" aria-label="Mapa del organizador"></div>
         <div class="actions">
           <button class="btn btn-primary" id="nextBtn" type="button">
-            <span class="label" id="nextLabel">Siguiente herramienta</span>
+            <span class="label" id="nextLabel">Nueva foto</span>
             <svg viewBox="0 0 28 16" aria-hidden="true"><path d="M1 8h26M20 1l7 7-7 7"/></svg>
             <span class="spinner"></span>
           </button>
-          <button class="btn btn-secondary" id="wrongBtn" type="button">No es correcta</button>
+          <button class="btn btn-secondary" id="wrongBtn" type="button">Repetir foto</button>
         </div>
       </div>
     </section>
@@ -141,7 +143,7 @@
       <button class="btn btn-primary btn-small" id="ledTestBtn" type="button">Probar LEDs</button>
       <button class="btn btn-secondary btn-small" id="ledOffBtn" type="button">Apagar LEDs</button>
       <label class="diag-force" id="forceWrap" hidden>Resultado simulado
-        <select id="forceSelect"><option value="">Aleatorio</option></select>
+        <select id="forceSelect"><option value="">Tres herramientas</option></select>
       </label>
     </div>
   </div>
@@ -149,6 +151,7 @@
   <input type="file" id="fileInput" accept="image/*" hidden>
   <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
 </div>
+<script src="/static/multiobject.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

@@ -241,126 +241,115 @@ async function send() {
     if (request === state.recognitionVersion) {
       state.recognizing = false;
       setLoading(button, false);
-      button.querySelector('.label').textContent = 'Enviar a la API';
+      button.querySelector('.label').textContent = 'Identificar herramientas';
     }
   }
 }
 
 function renderResult() {
   const r = state.result;
-  const screen = $('#screen-result');
   const kind = r.status === 'accepted' ? 'accepted' : r.status === 'error' ? 'error' : 'rejected';
-  screen.dataset.kind = kind;
+  $('#screen-result').dataset.kind = kind;
   $('#testChip').hidden = !r.test_mode;
-
-  const note = $('#cardNote');
-  note.hidden = true;
-  if (kind === 'accepted') {
-    $('#cardLabel').textContent = 'Herramienta reconocida';
-    $('#cardTitle').textContent = r.label;
-    $('#locationText').innerHTML = '';
-    r.slot.location.split(/\s*[·—-]\s*/).forEach((line, i) => {
-      if (i) $('#locationText').append(document.createElement('br'));
-      $('#locationText').append(line);
-    });
-    $('#nextLabel').textContent = 'Siguiente herramienta';
-    $('#wrongBtn').textContent = 'No es correcta';
-  } else if (kind === 'rejected') {
-    $('#cardLabel').textContent = 'Herramienta no reconocida';
-    $('#cardTitle').textContent = 'Prueba otra foto';
-    const best = r.ranking && r.ranking[0];
-    note.textContent = best ? `Mejor candidato: ${best.label} · similitud ${fmt.format(best.similarity)}` : '';
-    note.hidden = !best;
-    $('#nextLabel').textContent = 'Repetir foto';
-    $('#wrongBtn').textContent = 'Volver al inicio';
-  } else {
-    $('#cardLabel').textContent = 'Sin respuesta de la API';
-    $('#cardTitle').textContent = 'Revisa la conexión';
-    $('#nextLabel').textContent = 'Reintentar';
-    $('#wrongBtn').textContent = 'Repetir foto';
+  const accepted = (r.objects || []).filter(o => o.status === 'accepted').length;
+  $('#cardLabel').textContent = kind === 'error' ? 'Sin respuesta' : 'Objetos identificados';
+  $('#cardTitle').textContent = kind === 'error' ? 'Revisa la conexión' : `${accepted} herramientas aceptadas`;
+  $('#cardTitle').classList.add('long');
+  $('#cardNote').textContent = kind === 'error' ? r.reason : `${(r.objects || []).length - accepted} para revisar. Los sensores verifican presencia por ubicación.`;
+  $('#cardNote').hidden = false;
+  $('#nextLabel').textContent = kind === 'error' ? 'Reintentar' : 'Nueva foto';
+  $('#wrongBtn').textContent = 'Repetir foto';
+  const showPhoto = !!r.image_size && !!state.photo;
+  $('#detectionPhoto').hidden = !showPhoto;
+  $('#objectBoxes').replaceChildren();
+  $('#objectList').replaceChildren();
+  if (showPhoto) {
+    $('#resultPhoto').src = state.photo.url;
+    $('#detectionPhoto').style.aspectRatio = r.image_size.join(' / ');
   }
-
-  // La similitud de EmbeddingGemma no es un porcentaje de confianza: se muestra tal cual.
-  const similarity = typeof r.similarity === 'number' ? r.similarity : null;
-  $('#meterFill').style.width = `${Math.max(0, Math.min(1, similarity || 0)) * 100}%`;
-  $('#meterValue').textContent = similarity === null ? '—' : fmt.format(similarity);
-  $('#meter').title = 'Similitud entre la foto y las referencias (no es un porcentaje de confianza)';
-
-  $('#cardTitle').classList.toggle('long', $('#cardTitle').textContent.length > 14);
+  for (const object of r.objects || []) {
+    if (showPhoto) {
+      const box = document.createElement('button');
+      box.type = 'button';
+      box.className = `object-box ${object.status}`;
+      Object.assign(box.style, KiwiMultiobject.boxStyle(object.box, r.image_size));
+      box.setAttribute('aria-label', `Corregir objeto ${object.id}: ${object.label}`);
+      const number = document.createElement('span');
+      number.textContent = object.id;
+      box.append(number);
+      box.onclick = () => openLabelSheet(object);
+      $('#objectBoxes').append(box);
+    }
+    const row = document.createElement('li');
+    row.className = `object-row ${object.status}`;
+    const text = document.createElement('div');
+    const label = document.createElement('strong');
+    label.textContent = `${object.id}. ${object.label}`;
+    const detail = document.createElement('p');
+    detail.textContent = object.status === 'accepted' ? object.slot.location : `Revisar: ${object.reason}`;
+    text.append(label, detail);
+    const correct = document.createElement('button');
+    correct.type = 'button';
+    correct.textContent = 'Corregir';
+    correct.setAttribute('aria-label', `Corregir objeto ${object.id}: ${object.label}`);
+    correct.onclick = () => openLabelSheet(object);
+    row.append(text, correct);
+    $('#objectList').append(row);
+  }
   renderGuide();
 }
 
 function renderGuide() {
-  const r = state.result;
-  const s = state.status;
+  const r = state.result, s = state.status;
   if (!r || !s) return;
-  const map = $('#map');
   const guide = s.guide || {};
-  const accepted = r.status === 'accepted';
-  const targetId = accepted ? r.slot.id : null;
-  const ours = accepted && guide.target && guide.target.id === targetId;
-
-  const cols = s.columns || 3;
-  map.style.setProperty('--cols', cols);
-  map.style.setProperty('--rows', Math.ceil(s.slots.length / cols));
-  map.replaceChildren(...s.slots.map((slot) => {
+  const progress = KiwiMultiobject.guideProgress(r, s);
+  const map = $('#map');
+  map.style.setProperty('--cols', s.columns || 3);
+  map.style.setProperty('--rows', Math.ceil(s.slots.length / (s.columns || 3)));
+  const targets = new Set((r.slots || []).map(slot => slot.id));
+  const confirmed = new Set(progress ? guide.confirmed : []);
+  const wrong = new Set(progress ? guide.wrong_slots : []);
+  map.replaceChildren(...s.slots.map(slot => {
     const cell = document.createElement('div');
-    cell.className = 'cell';
-    cell.textContent = slot.id;
-    if (ours && slot.id === targetId) {
-      cell.classList.add(guide.phase === 'returned' ? 'ok' : 'target');
-      if (guide.phase === 'guiding') cell.classList.add('pulse');
+    cell.className = 'cell'; cell.textContent = slot.id;
+    if (progress && targets.has(slot.id)) {
+      cell.classList.add(confirmed.has(slot.id) ? 'ok' : 'target');
+      if (!confirmed.has(slot.id) && guide.phase !== 'timeout') cell.classList.add('pulse');
     }
-    if (ours && guide.phase === 'wrong_slot' && slot.id === guide.wrong) cell.classList.add('wrong');
+    if (wrong.has(slot.id)) cell.classList.add('wrong');
     const occ = document.createElement('span');
-    occ.className = 'occ';
-    occ.dataset.occupied = String(slot.occupied);
-    occ.title = slot.occupied === null ? '' : slot.occupied ? 'Ocupada' : 'Vacía';
+    occ.className = 'occ'; occ.dataset.occupied = String(slot.occupied);
     cell.append(occ);
-    cell.setAttribute('aria-label', `Posición ${slot.id}: ${slot.label}${slot.occupied ? ', ocupada' : ''}`);
+    cell.setAttribute('aria-label', `Posición ${slot.id}: ${slot.label}, ${slot.led}, ${slot.occupied ? 'ocupada' : 'vacía'}`);
     return cell;
   }));
-
   const status = $('#statusText');
   status.dataset.tone = '';
-  if (!accepted) {
-    status.textContent = r.reason || '';
+  if (r.status !== 'accepted') {
+    $('#locationText').textContent = '';
+    status.textContent = r.reason || 'Repite la foto.';
     return;
   }
-  const n = targetId;
-  let text = `El LED ${n} ya está encendido.`;
-  let detail = '';
-  if (!ours && state._wasGuiding) {
-    resetToCapture();   // la guía terminó (devuelta y reinicio automático) o se canceló
+  if (!progress) {
+    if (!guide.operation_id && guide.phase === 'idle' && state._wasGuiding) resetToCapture();
+    else status.textContent = 'Esta foto ya no tiene una guía activa.';
     return;
   }
-  if (ours) state._wasGuiding = true;
-  switch (ours ? guide.phase : 'idle') {
-    case 'guiding':
-      detail = guide.verify ? 'Colócala en su lugar: los sensores confirmarán la devolución.' : '';
-      if (guide.verify && guide.target_was_occupied) detail = `La posición ${n} aparece ocupada. ¿Hay otro objeto?`;
-      break;
-    case 'wrong_slot':
-      status.dataset.tone = 'warn';
-      text = `Esa es la posición ${guide.wrong}. Va en la ${n}.`;
-      detail = 'Retírala y colócala donde está la luz azul.';
-      break;
-    case 'returned':
-      status.dataset.tone = 'ok';
-      text = '¡Devuelta en su lugar!';
-      detail = 'Volviendo al inicio…';
-      break;
-    case 'timeout':
-      text = `No se detectó la devolución. Se apagó el LED ${n}.`;
-      break;
-    default:
-      break;
-  }
-  status.textContent = text;
-  if (detail) {
-    const small = document.createElement('small');
-    small.textContent = detail;
-    status.append(small);
+  state._wasGuiding = true;
+  $('#locationText').textContent = `${progress.confirmed} de ${progress.total} ubicaciones confirmadas`;
+  if (progress.complete) {
+    status.dataset.tone = 'ok';
+    status.textContent = '¡Todas devueltas! Volviendo al inicio…';
+  } else if (progress.phase === 'timeout') {
+    status.textContent = `Se apagaron las luces. Quedan pendientes las posiciones ${progress.pending.join(', ')}.`;
+  } else if (progress.wrong_slots.length) {
+    status.dataset.tone = 'warn';
+    status.textContent = `Retira los objetos de las posiciones ${progress.wrong_slots.join(', ')} y usa las luces azules.`;
+  } else if (progress.blocked.length) {
+    status.textContent = `Las posiciones ${progress.blocked.join(', ')} ya estaban ocupadas. Libéralas antes de devolver las herramientas.`;
+  } else {
+    status.textContent = guide.verify ? 'Devuelve las herramientas en las luces azules. Cada ubicación pasará a verde.' : 'Sin sensores: las luces indican los lugares, pero la devolución no está verificada.';
   }
 }
 
@@ -370,7 +359,7 @@ async function primaryResultAction() {
   const button = $('#nextBtn');
   setLoading(button, true);
   try {
-    await postJSON('/api/next');
+    await postJSON('/api/next', {photo_id: state.photo?.photo_id});
   } catch (error) {
     toast(error.message);
   } finally {
@@ -402,19 +391,19 @@ async function retrySend() {
 }
 
 async function secondaryResultAction() {
-  const r = state.result;
-  if (r && r.status === 'accepted') {
-    openLabelSheet();   // guarda la foto con su etiqueta real antes de volver al inicio
-    return;
-  }
+  try { await postJSON('/api/next', {photo_id: state.photo?.photo_id}); }
+  catch (error) { toast(error.message); return; }
   resetToCapture();
 }
 
-function openLabelSheet() {
+function openLabelSheet(object) {
+  state.correctionObjectId = object.id;
+  state.correctionFocus = document.activeElement;
+  $('#labelSheetTitle').textContent = `¿Qué era el objeto ${object.id}?`;
   const options = $('#labelOptions');
   const slots = (state.status && state.status.slots) || [];
   const buttons = slots
-    .filter((slot) => !state.result || slot.category !== state.result.category)
+    .filter((slot) => !state.result || slot.category !== object.category)
     .map((slot) => [slot.label, slot.category, '']);
   buttons.push(['No es una herramienta del taller', 'otros', 'other']);
   options.replaceChildren(...buttons.map(([label, category, cls]) => {
@@ -426,27 +415,35 @@ function openLabelSheet() {
     return button;
   }));
   $('#labelSheet').hidden = false;
+  $('#labelOptions').querySelector('button')?.focus();
 }
 
 async function submitCorrection(actual) {
   $('#labelSheet').hidden = true;
   try {
-    await postJSON('/api/reject', { photo_id: state.photo.photo_id, actual });
-    toast('Gracias. Guardamos la foto para mejorar el reconocimiento.');
+    await postJSON('/api/reject', { photo_id: state.photo.photo_id, object_id: state.correctionObjectId, actual });
+    toast('Gracias. Guardamos el recorte para mejorar el reconocimiento.');
+    resetToCapture();
   } catch (error) {
     toast(error.message);
+    $('#labelSheet').hidden = false;
   }
-  resetToCapture();
+}
+
+function closeLabelSheet() {
+  $('#labelSheet').hidden = true;
+  state.correctionFocus?.focus();
 }
 
 function resetToCapture() {
   const wasRecognizing = state.recognizing;
+  const canceledPhotoId = state.photo?.photo_id;
   state.recognitionVersion += 1;
   state.recognizing = false;
   setLoading($('#sendBtn'), false);
-  $('#sendBtn').querySelector('.label').textContent = 'Enviar a la API';
+  $('#sendBtn').querySelector('.label').textContent = 'Identificar herramientas';
   setLoading($('#nextBtn'), false);
-  if (wasRecognizing) postJSON('/api/next').catch((error) => toast(error.message));
+  if (wasRecognizing) postJSON('/api/next', {photo_id: canceledPhotoId}).catch((error) => toast(error.message));
   state.result = null;
   state.photo = null;
   state._wasGuiding = false;
@@ -482,7 +479,7 @@ function renderDiag() {
     ['Cámara', s.drivers.camera === 'none' ? 'del navegador' : s.drivers.camera],
     ['LEDs', s.drivers.leds],
     ['Sensores', s.drivers.sensors],
-    ['Guía', `${s.guide.phase}${s.guide.target ? ` · posición ${s.guide.target.id}` : ''}`],
+    ['Guía', `${s.guide.phase} · ${(s.guide.confirmed || []).length} ubicaciones confirmadas`],
     ['Modo prueba', s.test_mode ? 'activado' : 'no'],
   ];
   $('#diagDrivers').replaceChildren(...drivers.map(([k, v]) => {
@@ -557,13 +554,23 @@ $('#wrongBtn').addEventListener('click', secondaryResultAction);
 $('#endpointInput').addEventListener('change', saveEndpoint);
 $('#endpointInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 $('#diagClose').addEventListener('click', () => { $('#diag').hidden = true; });
-$('#labelCancel').addEventListener('click', () => { $('#labelSheet').hidden = true; });
+$('#labelCancel').addEventListener('click', closeLabelSheet);
+document.addEventListener('keydown', (event) => {
+  if ($('#labelSheet').hidden) return;
+  if (event.key === 'Escape') { event.preventDefault(); closeLabelSheet(); }
+  if (event.key === 'Tab') {
+    const buttons = [...$('#labelSheet').querySelectorAll('button')];
+    const index = buttons.indexOf(document.activeElement);
+    if (event.shiftKey && index <= 0) { event.preventDefault(); buttons.at(-1).focus(); }
+    else if (!event.shiftKey && index === buttons.length - 1) { event.preventDefault(); buttons[0].focus(); }
+  }
+});
 $('#ledTestBtn').addEventListener('click', () => postJSON('/api/leds/test').catch((e) => toast(e.message)));
 $('#ledOffBtn').addEventListener('click', () => postJSON('/api/leds/off').catch((e) => toast(e.message)));
 $('#forceSelect').addEventListener('change', (e) => {
   postJSON(`/api/sim/recognizer?category=${encodeURIComponent(e.target.value)}`).catch((err) => toast(err.message));
 });
-bindLongPress($('#brand'), openDiag);
+$('#brand').addEventListener('click', openDiag);
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 if (new URLSearchParams(location.search).has('diag')) setTimeout(openDiag, 300);
 

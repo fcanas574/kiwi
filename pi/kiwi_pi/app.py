@@ -53,6 +53,10 @@ class PhotoRef(BaseModel):
     photo_id: str
 
 
+class NextBody(BaseModel):
+    photo_id: str | None = None
+
+
 class RejectBody(PhotoRef):
     object_id: int | None = None
     actual: str | None = None   # categoría real, 'otros' (objeto ajeno) o None si no se indicó
@@ -253,7 +257,9 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
         return result
 
     @app.post('/api/next')
-    async def next_tool():
+    async def next_tool(body: NextBody | None = None):
+        if body and body.photo_id and state.get('active_photo_id') != body.photo_id:
+            raise HTTPException(409, 'La estación está procesando otra foto.')
         station().cancel_guide()
         return {'ok': True}
 

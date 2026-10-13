@@ -105,3 +105,11 @@ def test_gradio_client_reads_json_output(cfg, monkeypatch):
     client = GradioRecognizer(cfg)
     monkeypatch.setattr(client, '_get_client', lambda: types.SimpleNamespace(predict=lambda *a, **k: ('photo', [], payload)))
     assert client._predict_sync(jpeg_bytes()) is payload
+
+
+def test_late_cancel_from_old_photo_does_not_stop_current_guide(cfg, monkeypatch):
+    with client_for(cfg, monkeypatch, response([obj(1, 'servo_motor')])) as client:
+        old = upload(client); current = upload(client)
+        result = client.post('/api/recognize', json={'photo_id': current['photo_id']}).json()
+        assert client.post('/api/next', json={'photo_id': old['photo_id']}).status_code == 409
+        assert client.get('/api/status').json()['guide']['operation_id'] == result['operation_id']

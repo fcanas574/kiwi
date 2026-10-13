@@ -1,0 +1,1 @@
+{"profile":"product-admin","sourceRoots":["pi/kiwi_pi/static"],"canonicalMap":"UX-CONTRACT.md","ownership":{"Select/Listbox":"native"},"requiredCapabilities":["Button","Dialog","File upload","Status feedback"],"commands":{"test":"node --test pi/tests/test_ui_requests.cjs pi/tests/test_ui_multiobject.cjs"},"requiredCommands":["test"]}
