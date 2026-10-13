@@ -48,7 +48,7 @@ class Station:
         self.camera_name = camera_name
         self.bus = EventBus()
         self.leds = LedController(cfg, on_change=self.notify)
-        self.sensors = SensorMonitor(cfg, on_change=self.on_sensor)
+        self.sensors = SensorMonitor(cfg, on_change=self.on_sensor, on_batch=self._on_sensor_batch)
         guide = cfg.section('guide')
         self.guide_timeout = float(guide.get('guide_timeout_seconds', 120))
         self.auto_reset = float(guide.get('auto_reset_seconds', 5))
@@ -197,12 +197,16 @@ class Station:
     def _update_progress(self) -> None:
         self.wrong = min(self.wrong_slots) if self.wrong_slots else None
         self.target_was_occupied = bool(self.blocked)
-        if not self.pending and not self.wrong_slots:
+        if not self.pending and not self.wrong_slots and not self.sensors.processing_batch:
             self.phase = 'returned'
             self._set_timer(max(self.ok_seconds, self.auto_reset), self.cancel_guide)
         else:
             self.phase = 'wrong_slot' if self.wrong_slots else 'guiding'
         self.notify()
+
+    def _on_sensor_batch(self) -> None:
+        if self.phase in ('guiding', 'wrong_slot'):
+            self._update_progress()
 
     async def on_sensor(self, slot_id: int, previous: bool | None, occupied: bool | None) -> None:
         self.notify()

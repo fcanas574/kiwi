@@ -108,8 +108,8 @@ Contrato de guía: `{operation_id, phase, targets, pending, confirmed, wrong_slo
 
 **Interfaces:** No añade contratos; verifica el recorrido completo de Tasks 1–4.
 
-- [ ] Ejecutar `rtk proxy env PYTHONPATH=pi:colab /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests colab/test_multiobject_probe.py -q` y las pruebas Node. Validar sintaxis de notebook y `rtk proxy git diff --check`.
-- [ ] Revisar `/predict`, Gradio y la Pi con el mismo esquema de lista; confirmar que el README ya no pide una sola herramienta por fotografía como flujo principal.
-- [ ] Documentar instalación, ejecución CPU/GPU, múltiples LEDs/sensores, categorías repetidas, correcciones por recorte y límites comprobados. Registrar resultados reales disponibles; no atribuir precisión ni latencia GPU sin medición.
-- [ ] Solicitar una revisión independiente del cambio completo, resolver hallazgos y repetir únicamente las verificaciones afectadas.
-- [ ] Integrar y publicar el cambio con README actualizado después de pasar las verificaciones y la revisión; informar qué sigue pendiente con hardware físico y fotos reales.
+- [x] Ejecutar `rtk proxy env PYTHONPATH=pi:colab /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests colab/test_multiobject_probe.py -q` y las pruebas Node. Validar sintaxis de notebook y `rtk proxy git diff --check`.
+- [x] Revisar `/predict`, Gradio y la Pi con el mismo esquema de lista; confirmar que el README ya no pide una sola herramienta por fotografía como flujo principal.
+- [x] Documentar instalación, ejecución CPU/GPU, múltiples LEDs/sensores, categorías repetidas, correcciones por recorte y límites comprobados. Registrar resultados reales disponibles; no atribuir precisión ni latencia GPU sin medición.
+- [x] Solicitar una revisión independiente del cambio completo, resolver hallazgos y repetir únicamente las verificaciones afectadas.
+- [x] Integrar y publicar el cambio con README actualizado después de pasar las verificaciones y la revisión; informar qué sigue pendiente con hardware físico y fotos reales.

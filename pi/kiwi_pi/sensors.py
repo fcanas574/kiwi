@@ -78,7 +78,8 @@ def make_sensor_driver(cfg: Config, count: int) -> SensorDriver:
 
 
 class SensorMonitor:
-    def __init__(self, cfg: Config, on_change: Callable[[int, bool | None, bool | None], Awaitable[None]]):
+    def __init__(self, cfg: Config, on_change: Callable[[int, bool | None, bool | None], Awaitable[None]],
+                 on_batch: Callable[[], None] | None = None):
         section = cfg.section('sensors')
         self.ids = [s.id for s in cfg.slots]
         self.driver = make_sensor_driver(cfg, len(self.ids))
@@ -88,6 +89,8 @@ class SensorMonitor:
         self.state: dict[int, bool | None] = dict(zip(self.ids, initial))
         self._pending: dict[int, tuple[bool | None, float]] = {}
         self._on_change = on_change
+        self._on_batch = on_batch
+        self.processing_batch = False
 
     @property
     def driver_name(self) -> str:
@@ -104,6 +107,7 @@ class SensorMonitor:
 
     async def tick(self) -> None:
         now = time.monotonic()
+        changes = []
         for slot_id, value in zip(self.ids, self.driver.read()):
             if value == self.state[slot_id]:
                 self._pending.pop(slot_id, None)
@@ -115,7 +119,16 @@ class SensorMonitor:
                 previous = self.state[slot_id]
                 self.state[slot_id] = value
                 self._pending.pop(slot_id, None)
-                await self._on_change(slot_id, previous, value)
+                changes.append((slot_id, previous, value))
+        # Apply a complete debounced sample before evaluating guide completion.
+        self.processing_batch = True
+        try:
+            for change in changes:
+                await self._on_change(*change)
+        finally:
+            self.processing_batch = False
+        if changes and self._on_batch:
+            self._on_batch()
 
     async def run(self) -> None:
         while True:

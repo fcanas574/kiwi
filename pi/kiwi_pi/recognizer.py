@@ -270,9 +270,15 @@ def validate_objects(api: dict, image_size: tuple[int, int]) -> list[dict]:
         for name in ('box', 'crop_box'):
             box = item.get(name)
             if not isinstance(box, list) or len(box) != 4: fail()
-            if not all(type(v) in (int, float) and math.isfinite(v) for v in box): fail()
+            if not all(type(v) is int for v in box): fail()
             x1, y1, x2, y2 = box
             if not (0 <= x1 < x2 <= width and 0 <= y1 < y2 <= height): fail()
+        x1, y1, x2, y2 = item['box']
+        cx1, cy1, cx2, cy2 = item['crop_box']
+        pad = max(2, round(min(x2 - x1, y2 - y1) * .04))
+        if not (max(0, x1 - pad) <= cx1 <= x1 and max(0, y1 - pad) <= cy1 <= y1
+                and x2 <= cx2 <= min(width, x2 + pad) and y2 <= cy2 <= min(height, y2 + pad)):
+            fail()
         r = item.get('recognition')
         if not isinstance(r, dict) or type(item.get('recognized')) is not bool or type(r.get('recognized')) is not bool: fail()
         if item['recognized'] != r['recognized'] or not isinstance(item.get('category'), str) or item['category'] != r.get('candidate'): fail()

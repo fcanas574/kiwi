@@ -88,6 +88,17 @@ def test_feedback_saves_only_selected_crop(cfg, monkeypatch):
         assert len(list((cfg.data_dir / 'feedback' / 'solder').glob('*.jpg'))) == 1
 
 
+@pytest.mark.parametrize('crop', [[0, 0, 64, 48], [30, 25, 50, 45], [.1, .1, .4, .4]])
+def test_incompatible_crop_is_rejected_before_guidance(cfg, monkeypatch, crop):
+    item = obj(1, 'servo_motor')
+    item['crop_box'] = crop
+    with client_for(cfg, monkeypatch, response([item, obj(2, 'solder')])) as client:
+        photo = upload(client)
+        result = client.post('/api/recognize', json={'photo_id': photo['photo_id']}).json()
+        assert result['status'] == 'error'
+        assert all(s['led'] == 'off' for s in client.get('/api/status').json()['slots'])
+
+
 def test_old_unrecognized_photo_cannot_cancel_new_operation(cfg, monkeypatch):
     with client_for(cfg, monkeypatch, response([obj(1, 'servo_motor')])) as client:
         old = upload(client)

@@ -94,3 +94,25 @@ def test_no_sensor_does_not_claim_confirmation(cfg):
         assert st.snapshot()['guide']['confirmed'] == []
         assert st.phase == 'guiding'
     run_case(cfg, case)
+
+
+@pytest.mark.parametrize('remove_target', [True, False])
+def test_completion_waits_for_entire_sensor_sample(cfg, remove_target):
+    async def case(st):
+        st.sensors.debounce = 0
+        st.begin_guides([cfg.slot_by_id(1), cfg.slot_by_id(7)], 'batch')
+        st.simulate_sensor(7, True)
+        await st.sensors.tick(); await st.sensors.tick()
+        assert st.confirmed == {7}
+        st.simulate_sensor(1, True)
+        st.simulate_sensor(7 if remove_target else 8, not remove_target)
+        await st.sensors.tick(); await st.sensors.tick()
+        if remove_target:
+            assert st.phase == 'guiding'
+            assert st.pending == {7}
+            assert st.confirmed == {1}
+        else:
+            assert st.phase == 'wrong_slot'
+            assert st.wrong_slots == {8}
+            assert st.confirmed == {1, 7}
+    run_case(cfg, case)
