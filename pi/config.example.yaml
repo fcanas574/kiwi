@@ -9,6 +9,7 @@ server:
   tls_certfile: ""
   tls_keyfile: ""
   # HTTPS usa la IP reservada que está en el SAN del certificado, no localhost.
+  # El kiosco conserva esa URL y conecta por loopback para administrar localmente.
   public_url: ""
   # Cambiar el endpoint, probar LEDs o simular sensores solo desde la propia Pi
   # (navegador del kiosco). true lo permite desde cualquier equipo de la red.

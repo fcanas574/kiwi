@@ -22,7 +22,7 @@ sudo systemctl restart kiwi
 sudo systemctl status kiwi
 ```
 
-La sección configura `tls_certfile`, `tls_keyfile` y `public_url`. El kiosco usa esa misma URL y comprueba el servicio con `ca.crt`; la comprobación TLS no omite errores de certificado. Para el teléfono, transfiere únicamente el certificado público de la CA: usa `ca.crt` en Android y `ca.cer` en iOS. Confirma su huella SHA-256 en la Pi antes de instalarlo:
+La sección configura `tls_certfile`, `tls_keyfile` y `public_url`. Mantén `server.host: 0.0.0.0` para aceptar tanto la conexión local como la del teléfono. El kiosco usa esa misma URL, pero su Chromium resuelve la IP a `127.0.0.1` solo en ese proceso; la comprobación del servicio también conecta por loopback y valida la IP del certificado con el `ca.crt` junto a `server.crt`. No omite errores TLS. Así conserva la edición del endpoint y la administración de LEDs desde la pantalla con `allow_remote_admin: false`. El teléfono usa la IP por la red y no recibe permisos de administración. Para el teléfono, transfiere únicamente el certificado público de la CA: usa `ca.crt` en Android y `ca.cer` en iOS. Confirma su huella SHA-256 en la Pi antes de instalarlo:
 
 ```bash
 openssl x509 -in "$HOME/kiwi-https-2026/ca.crt" -noout -fingerprint -sha256
@@ -57,7 +57,7 @@ certutil -D -d "sql:$HOME/.pki/nssdb" -n "Kiwi local HTTPS" 2>/dev/null || true
 certutil -A -d "sql:$HOME/.pki/nssdb" -n "Kiwi local HTTPS" -t "C,," -i "$HOME/kiwi-https-2026/ca.crt"
 ```
 
-`C,,` marca la CA para TLS de sitios web en NSS. Ejecuta `certutil` como el mismo usuario de escritorio que inicia el kiosco. El kiosco comprueba que el servicio responda usando el archivo CA junto a `server.crt` y luego abre `server.public_url`; Chromium también debe confiar en la CA desde su perfil para mostrar la página sin advertencias.
+`C,,` marca la CA para TLS de sitios web en NSS. Ejecuta `certutil` como el mismo usuario de escritorio que inicia el kiosco. El kiosco comprueba que el servicio responda usando el archivo CA junto a `server.crt` y luego abre `server.public_url`; Chromium también debe confiar en la CA desde su perfil para mostrar la página sin advertencias. El mapeo local conserva la URL y la comprobación del certificado; no instala confianza. El kiosco desactiva proxies en su proceso para garantizar la conexión local. Las rutas TLS relativas se interpretan desde `pi/`, igual que en `kiwi.service`.
 
 ## Abrir la cámara y comprobarla
 
