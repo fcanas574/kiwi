@@ -79,3 +79,14 @@ def test_manual_identify_contract_unchanged():
     assert response['detection_seconds'] >= 0
     assert response['elapsed_seconds'] >= response['detection_seconds']
 
+
+
+def test_locate_empty_detection_does_not_classify():
+    def classify(image):
+        raise AssertionError('empty locate must not call Qwen')
+    probe = probe_with(classify)
+    probe.detect = lambda image, threshold: ([], 0)
+    result = probe.locate(Image.new('RGB', (80, 40)))
+    assert result['image_size'] == [80, 40]
+    assert result['objects'] == []
+    assert result['raw_detections'] == 0

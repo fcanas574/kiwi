@@ -69,6 +69,8 @@ class Station:
         self.continuous = False
         self.target_was_occupied = False
         self._guide_cycle = 0
+        # Advances for replacements/explicit cancellations, but not natural completion.
+        self.operation_revision = 0
         self._timer: asyncio.Task | None = None
         self._tasks: list[asyncio.Task] = []
         self._notify_scheduled = False
@@ -226,7 +228,9 @@ class Station:
         self.target = next(iter(self.targets.values())) if len(self.targets) == 1 else None
         self._update_progress()
 
-    def cancel_guide(self) -> None:
+    def cancel_guide(self, *, natural_completion: bool = False) -> None:
+        if not natural_completion:
+            self.operation_revision += 1
         self._guide_cycle += 1
         self.recognition_version += 1
         if self._timer:
@@ -258,7 +262,8 @@ class Station:
         self.target_was_occupied = bool(self.blocked)
         if not self.pending and not self.wrong_slots and not self.sensors.processing_batch:
             self.phase = 'returned'
-            self._set_timer(max(self.ok_seconds, self.auto_reset), self.cancel_guide)
+            self._set_timer(max(self.ok_seconds, self.auto_reset),
+                            lambda: self.cancel_guide(natural_completion=True))
         else:
             self.phase = 'wrong_slot' if self.wrong_slots else 'guiding'
         self.notify()

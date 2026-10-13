@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
@@ -113,6 +114,22 @@ def _wait_for(client: TestClient, predicate, message: str, timeout: float = 2.0)
     raise AssertionError(f'{message}; último estado: {state}')
 
 
+class ControlledGuideTimer:
+    """Control only the station's timer boundary, on the app's event loop."""
+    def __init__(self, station):
+        self.station = station
+        self.pending = None
+
+    def schedule(self, delay, callback):
+        self.pending = (self.station._guide_cycle, callback)
+
+    def fire(self):
+        cycle, callback = self.pending
+        self.pending = None
+        if cycle == self.station._guide_cycle:
+            callback()
+
+
 def _led(state: dict, slot_id: int) -> str:
     return next(slot['led'] for slot in state['slots'] if slot['id'] == slot_id)
 
@@ -202,9 +219,9 @@ def test_real_app_scan_journey_survives_sensors_outages_and_stale_replies(
         assert _led(state_after_new_target, 7) == 'guide'
 
         # The final sensor finishes this cycle while the camera session keeps
-        # running. The short green timer is used only after this assertion.
-        station.auto_reset = 0.05
-        station.ok_seconds = 0.05
+        # running. Advance its controlled green timer only after assertions.
+        green_timer = ControlledGuideTimer(station)
+        monkeypatch.setattr(station, '_set_timer', green_timer.schedule)
         _set_sensor(client, 7, True)
         state_after_final_sensor = _wait_for(
             client,
@@ -217,6 +234,7 @@ def test_real_app_scan_journey_survives_sensors_outages_and_stale_replies(
         assert _led(state_after_final_sensor, 1) == 'ok'
         assert _led(state_after_final_sensor, 7) == 'ok'
 
+        client.portal.call(green_timer.fire)
         _wait_for(client, lambda state: state['guide']['phase'] == 'idle',
                   'el ciclo verde no se cerró')
         _set_sensor(client, 1, False)
@@ -229,7 +247,9 @@ def test_real_app_scan_journey_survives_sensors_outages_and_stale_replies(
         recognizer.active_object_ids = set()
         for sequence in (10, 11, 12):
             clock.advance(0.5)
-            _post_frame(client, started, sequence, jpeg)
+            absence = _post_frame(client, started, sequence, jpeg)
+            if sequence < 12:
+                assert sorted(absence['suppressed_categories']) == ['digital_multimeter', 'servo_motor']
         state_after_valid_absence = _status(client)
         assert state_after_valid_absence['scan']['suppressed_categories'] == []
 
@@ -293,3 +313,49 @@ def test_real_app_scan_journey_survives_sensors_outages_and_stale_replies(
         assert final_state['guide']['phase'] == 'returned'
         assert final_state['guide']['confirmed'] == [1]
         assert _led(final_state, 1) == 'ok'
+
+
+def test_real_app_frozen_feedback_survives_sensor_and_natural_green_completion(station_cfg, monkeypatch):
+    cfg = station_cfg
+    cfg.scan_pairing_key = 'correction-integration'
+    cfg.raw['scan'].update(stable_samples=3, stable_seconds=1.0, retry_seconds=0)
+    recognizer = ControlledRecognizer(cfg)
+    monkeypatch.setattr('kiwi_pi.app.make_recognizer', lambda _: recognizer)
+    app = create_app(cfg)
+    clock = ControlledClock()
+    with TestClient(app, base_url='https://testserver') as client:
+        app.state.scan.clock = clock
+        station = app.state.scan.station
+        green_timer = ControlledGuideTimer(station)
+        monkeypatch.setattr(station, '_set_timer', green_timer.schedule)
+        client.post('/api/scan/pair', json={'code': cfg.scan_pairing_key}).raise_for_status()
+        session = client.post('/api/scan/start', json={}).json()
+        for sequence in (1, 2, 3, 4):
+            clock.advance()
+            analyzed = _post_frame(client, session, sequence, _jpeg())
+        assert analyzed['guide']['pending'] == [1]
+        track = analyzed['tracks'][0]
+        frozen_response = client.post('/api/scan/correction/prepare', json={
+            'session_id': session['session_id'], 'track_id': track['track_id'], 'revision': track['revision']})
+        frozen_response.raise_for_status()
+        frozen = frozen_response.json()
+        crop = client.get(f"/api/scan/correction/{frozen['correction_id']}/crop").content
+        _set_sensor(client, 1, True)
+        returned = _wait_for(client, lambda state: state['guide']['phase'] == 'returned', 'sensor no confirmó')
+        assert returned['guide']['confirmed'] == [1]
+        assert _led(returned, 1) == 'ok'
+        assert returned['scan']['capture_state'] == 'paused'
+        client.portal.call(green_timer.fire)
+        completed = _status(client)
+        assert completed['guide']['operation_id'] is None
+        assert completed['scan']['generation'] == frozen['generation']
+        response = client.post('/api/scan/correction/submit', json={
+            'correction_id': frozen['correction_id'], 'actual': 'solder'})
+        assert response.status_code == 200, response.text
+        images = list((cfg.data_dir / 'feedback' / 'solder').glob('*.jpg'))
+        metadata = list((cfg.data_dir / 'feedback' / 'solder').glob('*.json'))
+        assert len(images) == len(metadata) == 1
+        assert images[0].read_bytes() == crop
+        with Image.open(images[0]) as image:
+            assert image.size == (32, 32)
+        assert json.loads(metadata[0].read_text())['sequence'] == 4

@@ -61,6 +61,8 @@
     let retryIndex = 0;
     let scheduled = null;
     let unsubscribe = null;
+    let unsubscribeCamera = null;
+    let cameraLossPromise = null;
     let guideVersion = 0;
 
     function snapshotForCallback() {
@@ -179,6 +181,22 @@
       if (camera && typeof camera.stop === 'function') Promise.resolve(camera.stop()).catch(() => {});
     }
 
+    function handleCameraLoss(error) {
+      if (cameraLossPromise) return cameraLossPromise;
+      if (disposed || (!running && !starting)) return Promise.resolve();
+      // pause invalidates local captures synchronously and advances the server
+      // generation without canceling the independent guide/sensor cycle.
+      const detail = messageFor(error);
+      cameraLossPromise = (async () => {
+        try { await pause(); } catch { /* pause reports transport failures itself */ }
+        if (typeof camera.stop === 'function') {
+          try { await camera.stop(); } catch { /* camera is already unavailable */ }
+        }
+        if (!disposed) emit({ capture_state: 'paused', busy: false, error: detail });
+      })().finally(() => { cameraLossPromise = null; });
+      return cameraLossPromise;
+    }
+
     async function captureAndSend(runEpoch) {
       if (!running || disposed || runEpoch !== epoch || frameBusy) return;
       const startedAt = timer.now();
@@ -186,11 +204,13 @@
       frameBusy = true;
       let frame = null;
       let retryMs = 0;
+      let capturing = true;
       emit({ busy: true, error: null });
       try {
         frame = await camera.capture({ maxSide: 960 });
         if (!running || disposed || runEpoch !== epoch) return;
         if (!frame || frame.jpeg == null) throw new Error('La cámara no entregó un cuadro JPEG.');
+        capturing = false;
         const request = {
           session_id: current.session_id,
           generation: current.generation,
@@ -240,7 +260,9 @@
       } catch (error) {
         if (running && !disposed && runEpoch === epoch) {
           const status = Number(error && error.status);
-          if (status === 401 || status === 409) {
+          if (capturing) {
+            await handleCameraLoss(error);
+          } else if (status === 401 || status === 409) {
             stopAfterAuthorization(error);
           } else {
             const detail = messageFor(error);
@@ -259,6 +281,7 @@
     }
 
     async function start(options = {}) {
+      if (cameraLossPromise) await cameraLossPromise;
       if (disposed) throw new Error('El controlador de escaneo ya se cerró.');
       if (running) return snapshotForCallback();
       if (startPromise) return startPromise;
@@ -338,8 +361,9 @@
       emit({ capture_state: 'paused', busy: false, error: null });
       if (!sessionId || !wasActive || typeof transport.pause !== 'function') return snapshotForCallback();
       try {
+        const guideAtPause = guideVersion;
         const paused = await transport.pause(sessionId);
-        mergeServerState(paused);
+        mergeServerState(paused, { keepGuide: guideVersion !== guideAtPause });
         emit({ capture_state: 'paused', busy: false });
         return snapshotForCallback();
       } catch (error) {
@@ -395,10 +419,15 @@
       epoch += 1;
       clearScheduled();
       if (typeof unsubscribe === 'function') unsubscribe();
+      if (typeof unsubscribeCamera === 'function') unsubscribeCamera();
       const oldFrame = current.last_analyzed_frame;
       current = { ...current, capture_state: 'paused', busy: false };
       releaseFrame(oldFrame);
       if (camera && typeof camera.stop === 'function') Promise.resolve(camera.stop()).catch(() => {});
+    }
+
+    if (typeof camera.subscribeLoss === 'function') {
+      unsubscribeCamera = camera.subscribeLoss(error => { void handleCameraLoss(error); });
     }
 
     if (typeof transport.subscribe === 'function') {
@@ -484,6 +513,8 @@
   function createBrowserCamera(video, { onMessage } = {}) {
     let stream = null;
     let wakeLock = null;
+    const lossListeners = new Set();
+    let removeTrackListeners = () => {};
 
     function report(message) {
       if (typeof onMessage === 'function') onMessage(message);
@@ -529,6 +560,16 @@
             frameRate: { ideal: 24, min: 15, max: 30 },
           },
         });
+        const acquired = stream;
+        const tracks = acquired.getVideoTracks();
+        const ended = () => {
+          if (stream !== acquired) return;
+          const error = new Error('La cámara se desconectó. Revisa el permiso y vuelve a iniciar el escaneo.');
+          report(error.message);
+          for (const listener of lossListeners) listener(error);
+        };
+        tracks.forEach(track => track.addEventListener('ended', ended));
+        removeTrackListeners = () => tracks.forEach(track => track.removeEventListener('ended', ended));
         video.srcObject = stream;
         video.hidden = false;
         await video.play();
@@ -538,6 +579,7 @@
           try { wakeLock = await root.navigator.wakeLock.request('screen'); } catch { wakeLock = null; }
         }
       } catch (error) {
+        removeTrackListeners();
         if (stream) stream.getTracks().forEach(track => track.stop());
         stream = null;
         video.srcObject = null;
@@ -558,6 +600,7 @@
     }
 
     async function stop() {
+      removeTrackListeners();
       if (stream) stream.getTracks().forEach(track => track.stop());
       stream = null;
       video.srcObject = null;
@@ -569,7 +612,8 @@
     }
 
     async function capture({ maxSide = 960 } = {}) {
-      if (!stream || !stream.active || !video.videoWidth || !video.videoHeight) {
+      if (!stream || !stream.active || stream.getVideoTracks().some(track => track.readyState === 'ended')
+          || !video.videoWidth || !video.videoHeight) {
         throw new Error('La cámara todavía no está lista.');
       }
       const scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
@@ -591,7 +635,11 @@
       };
     }
 
-    return { start, stop, capture, releaseFrame(frame) { if (frame && frame.release) frame.release(); } };
+    return { start, stop, capture,
+      subscribeLoss(listener) {
+        lossListeners.add(listener);
+        return () => lossListeners.delete(listener);
+      }, releaseFrame(frame) { if (frame && frame.release) frame.release(); } };
   }
 
   const api = { createController, createBrowserTransport, createBrowserCamera };

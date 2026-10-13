@@ -479,3 +479,94 @@ for (const mismatch of ['generation', 'session_id']) {
     assert.equal(element('#scanTrackCount').textContent, '0');
   });
 }
+
+
+test('capture failure pauses backend generation, keeps guide and needs explicit Start', async () => {
+  const { controller, camera, transport, snapshot, clock, sentFrames } = harness();
+  const guide = { operation_id: 'guide-1', pending: [1], confirmed: [] };
+  const originalPause = transport.pause;
+  transport.pause = async (...args) => ({ ...await originalPause(...args), guide });
+  camera.capture = async () => { throw new Error('Camera track ended'); };
+  await controller.start();
+  await flushPromises();
+  assert.equal(controller.getState().capture_state, 'paused');
+  assert.equal(snapshot().generation, 2);
+  assert.equal(snapshot().capture_state, 'paused');
+  assert.deepEqual(controller.getState().guide, guide);
+  assert.equal(controller.getState().connection_error, null);
+  assert.match(controller.getState().error, /Camera track ended/);
+  await clock.advance(30000);
+  assert.equal(sentFrames.length, 0);
+  camera.capture = async () => ({ jpeg: 'recovered' });
+  await controller.start();
+  await flushPromises();
+  assert.equal(sentFrames.length, 1);
+  assert.equal(sentFrames[0].generation, 3);
+  controller.dispose();
+});
+
+function browserCameraSurface() {
+  let currentTrack;
+  const tracks = [];
+  const video = { readyState: 2, videoWidth: 120, videoHeight: 90,
+    async play() {}, addEventListener() {}, removeEventListener() {} };
+  const context = {
+    isSecureContext: true, setTimeout, clearTimeout,
+    navigator: { mediaDevices: { async getUserMedia() {
+      const listeners = new Set();
+      currentTrack = { readyState: 'live', addEventListener(name, callback) { if (name === 'ended') listeners.add(callback); },
+        removeEventListener(name, callback) { listeners.delete(callback); }, stop() { this.readyState = 'ended'; },
+        end() { this.readyState = 'ended'; for (const callback of [...listeners]) callback(); } };
+      tracks.push(currentTrack);
+      return { active: true, getTracks: () => [currentTrack], getVideoTracks: () => [currentTrack] };
+    } } },
+    document: { createElement() { return { getContext: () => ({ drawImage() {} }), toBlob(callback) { callback({}); } }; } },
+    URL: { createObjectURL: () => 'blob:camera', revokeObjectURL() {} },
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(require('node:path').join(__dirname, '../kiwi_pi/static/scan.js'), 'utf8'), context);
+  return { camera: context.KiwiScan.createBrowserCamera(video), tracks };
+}
+
+test('browser track ended immediately invalidates in-flight response and permits explicit restart', async () => {
+  const oldFrame = deferred();
+  const { transport, clock, sentFrames, snapshot } = harness({ frameResults: [oldFrame] });
+  const { camera, tracks } = browserCameraSurface();
+  const controller = KiwiScan.createController({ transport, camera, clock });
+  await controller.start();
+  await flushPromises();
+  assert.equal(sentFrames.length, 1);
+  tracks[0].end();
+  await flushPromises();
+  assert.equal(controller.getState().capture_state, 'paused');
+  assert.equal(snapshot().generation, 2);
+  oldFrame.resolve({ state: snapshot({ generation: 1, capture_state: 'running', last_sequence: 1, tracks: [{ track_id: 9 }] }) });
+  await flushPromises();
+  await clock.advance(30000);
+  assert.equal(sentFrames.length, 1);
+  assert.deepEqual(controller.getState().tracks, []);
+  assert.equal(controller.getState().last_analyzed_frame, null);
+  await controller.start();
+  await flushPromises();
+  assert.equal(tracks.length, 2);
+  assert.equal(sentFrames.length, 2);
+  assert.equal(sentFrames[1].generation, 3);
+  controller.dispose();
+});
+
+
+test('camera loss keeps sensor SSE progress received while backend pause is pending', async () => {
+  const { controller, camera, transport, snapshot } = harness();
+  const pendingPause = deferred();
+  transport.pause = () => pendingPause.promise;
+  camera.capture = async () => { throw new Error('Camera unavailable'); };
+  await controller.start();
+  await flushPromises();
+  controller.syncFromServer(snapshot({ generation: 2, capture_state: 'paused',
+    guide: { operation_id: 'return-1', pending: [], confirmed: [1] } }));
+  pendingPause.resolve(snapshot({ generation: 2, capture_state: 'paused',
+    guide: { operation_id: 'return-1', pending: [1], confirmed: [] } }));
+  await flushPromises();
+  assert.deepEqual(controller.getState().guide.confirmed, [1]);
+  controller.dispose();
+});

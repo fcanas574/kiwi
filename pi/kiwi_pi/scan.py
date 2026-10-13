@@ -43,6 +43,7 @@ class _FrozenCorrection:
     owner: str | None
     generation: int
     operation_id: str | None
+    operation_revision: int
 
 
 class _StaleGeneration(Exception):
@@ -325,6 +326,7 @@ class ScanCoordinator:
             owner=self._owner,
             generation=self._generation + 1,
             operation_id=self.station.operation_id,
+            operation_revision=self.station.operation_revision,
         )
         # Validate first, then pause and advance generation as one synchronous
         # event-loop operation. The crop remains independent of later frames.
@@ -347,7 +349,8 @@ class ScanCoordinator:
         if (correction.metadata['session_id'] != self._session_id
                 or correction.generation != self._generation
                 or correction.owner != self._owner
-                or correction.operation_id != self.station.operation_id
+                or correction.operation_revision != self.station.operation_revision
+                or self.station.operation_id not in (correction.operation_id, None)
                 or self._capture_state != 'paused'):
             raise ScanError(409, 'La corrección ya no controla la sesión actual.')
         valid = {slot.category for slot in self.cfg.slots} | {'otros'}

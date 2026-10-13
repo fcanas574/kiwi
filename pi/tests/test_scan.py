@@ -606,3 +606,80 @@ def test_frozen_correction_cannot_cancel_successor_guide_in_same_generation(cfg)
         assert station.operation_id == 'successor-manual'
 
     run_case(case, cfg)
+
+
+def test_frozen_correction_survives_natural_sensor_completion(cfg):
+    async def case(scan, station, recognizer):
+        session = scan.start('phone')
+        for sequence, now in ((1, 0), (2, .5), (3, 1), (4, 1.5)):
+            scan.clock.now = now
+            await process(scan, session, sequence)
+        assert station.pending == {7}
+        track = scan.snapshot()['tracks'][0]
+        frozen = scan.freeze_correction(session['session_id'], track['track_id'], track['revision'])
+        crop = scan.correction_crop(frozen['correction_id'])
+        timers = []
+        station._set_timer = lambda delay, callback: timers.append(callback)
+        await station.on_sensor(7, False, True)
+        assert station.phase == 'returned'
+        assert station.confirmed == {7}
+        assert station.leds.snapshot()[7] == 'ok'
+        timers.pop()()
+        assert station.operation_id is None
+        assert station.phase == 'idle'
+        assert scan.snapshot()['generation'] == frozen['generation']
+        assert scan.submit_correction(frozen['correction_id'], 'solder') == {'ok': True}
+        images = list((cfg.data_dir / 'feedback' / 'solder').glob('*.jpg'))
+        metadata = list((cfg.data_dir / 'feedback' / 'solder').glob('*.json'))
+        assert len(images) == len(metadata) == 1
+        assert images[0].read_bytes() == crop
+        assert json.loads(metadata[0].read_text())['sequence'] == 4
+    run_case(case, cfg)
+
+
+@pytest.mark.parametrize('replacement', ['manual_closed', 'continuous_closed', 'admin_cancel'])
+def test_frozen_correction_rejects_closed_successor_or_admin_operation(cfg, replacement):
+    async def case(scan, station, recognizer):
+        session = scan.start('phone')
+        await process(scan, session, 1)
+        track = scan.snapshot()['tracks'][0]
+        frozen = scan.freeze_correction(session['session_id'], track['track_id'], track['revision'])
+        if replacement == 'manual_closed':
+            station.begin_guides([cfg.slot_by_id(1)], 'successor-manual')
+        elif replacement == 'continuous_closed':
+            station.add_guides([cfg.slot_by_id(1)], 'successor-continuous')
+        station.cancel_guide()
+        assert station.operation_id is None
+        before = scan.snapshot()
+        with pytest.raises(ScanError) as stale:
+            scan.submit_correction(frozen['correction_id'], 'solder')
+        assert stale.value.status_code == 409
+        assert scan.snapshot() == before
+        assert not list((cfg.data_dir / 'feedback').rglob('*.jpg'))
+        assert scan.correction_crop(frozen['correction_id'])
+    run_case(case, cfg)
+
+
+def test_frozen_correction_rejects_successor_that_naturally_completed(cfg):
+    async def case(scan, station, recognizer):
+        session = scan.start('phone')
+        for sequence, now in ((1, 0), (2, .5), (3, 1), (4, 1.5)):
+            scan.clock.now = now
+            await process(scan, session, sequence)
+        original_operation = station.operation_id
+        track = scan.snapshot()['tracks'][0]
+        frozen = scan.freeze_correction(session['session_id'], track['track_id'], track['revision'])
+        timers = []
+        station._set_timer = lambda delay, callback: timers.append(callback)
+        await station.on_sensor(7, False, True)
+        timers.pop()()
+        # Reusing even the original string must not defeat the history guard.
+        station.add_guides([cfg.slot_by_id(1)], original_operation)
+        await station.on_sensor(1, False, True)
+        timers.pop()()
+        assert station.operation_id is None
+        with pytest.raises(ScanError) as stale:
+            scan.submit_correction(frozen['correction_id'], 'solder')
+        assert stale.value.status_code == 409
+        assert not list((cfg.data_dir / 'feedback').rglob('*.jpg'))
+    run_case(case, cfg)
