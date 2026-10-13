@@ -1,6 +1,6 @@
 # Validación del escaneo continuo
 
-Estado al 13 de octubre de 2026: las rutas de software y el navegador simulado completan los recorridos indicados abajo. La revisión final de la rama encontró dos fallos de integración; la única corrección final autorizada está implementada y verificada, pendiente de su revisión independiente enfocada. No se hicieron mediciones con Raspberry Pi, teléfono ni GPU; no se declara cumplida la meta física de 100 ms.
+Estado al 13 de octubre de 2026: las rutas de software y el navegador simulado completan los recorridos indicados abajo. La revisión final de la rama encontró dos fallos de integración; la corrección final y su revisión independiente enfocada resolvieron todos los hallazgos accionables. No se hicieron mediciones con Raspberry Pi, teléfono ni GPU; no se declara cumplida la meta física de 100 ms.
 
 ## Recorrido de la aplicación
 
@@ -95,3 +95,9 @@ No hay cifras estimadas para sustituir las mediciones. Cuando estén disponibles
 4. Para 10 recorridos con un objeto y 10 con varios, registra `detection_seconds`, `classification_seconds` y el tiempo monotónico desde **Iniciar escaneo** hasta el primer LED. Informa mediana, percentil 95, máximo y fallos; compara la latencia de devolución respecto al modo sin escaneo. La meta de aceptación es como máximo 100 ms adicionales por evento ya antirreboteado y cero cambios perdidos.
 
 No declarar cumplimiento de estas metas hasta guardar resultados tomados en los dispositivos físicos y repetir las verificaciones de teléfono/certificado. La guía de preparación y renovación está en [HTTPS local para la cámara del teléfono](local-phone-setup.md).
+
+## Cierre de revisión
+
+La revisión independiente de toda la rama y la revisión enfocada del parche final están completadas. No quedaron hallazgos críticos o importantes abiertos. Se conservan [los informes y reproducciones](continuous-stand-review.md), [las decisiones de ejecución](continuous-stand-decisions.md) y [el resultado estático de la auditoría de UI](continuous-stand-ui-audit.json). Las comprobaciones físicas y los límites registrados arriba permanecen pendientes.
+
+Comprobación final del controlador sobre el código revisado ca5f675: `PYTHONPATH=pi:colab KIWI_TEST_CHROME=... pytest pi/tests colab -q` terminó con 154 aprobadas, 1 advertencia de dependencia ya existente y código de salida 0 (49,30 s). Todos los `test_ui_*.cjs` terminaron con 29 aprobadas y cero fallos. Las 11 y 6 celdas de los dos notebooks pasaron el análisis de sintaxis; los tres scripts de despliegue pasaron `bash -n` y `git diff --check` no encontró errores. Esta comprobación incluye las pruebas Chrome/red optativas y conserva los límites físicos descritos arriba.

@@ -1,6 +1,6 @@
 # Kiwi: escaneo continuo desde un celular en un stand
 
-Fecha: 13 de octubre de 2026. Estado: especificación aprobada por el usuario; implementación y corrección final verificadas por software, pendientes de revisión enfocada y validación física.
+Fecha: 13 de octubre de 2026. Estado: especificación aprobada por el usuario; implementación y corrección final verificadas por software y revisión independiente; validación física pendiente.
 
 ## Propósito y criterios de éxito
 
@@ -160,7 +160,7 @@ La implementación debe mantener aprobadas las pruebas actuales del modo manual 
 
 ## Estado de validación al 13 de octubre de 2026
 
-La implementación de software cubre la coordinación de escaneo, guías acumuladas, devolución por sensores, pausa/reconexión y descarte de respuestas atrasadas. La prueba integrada y la comprobación enfocada de navegador están registradas en [la validación del escaneo continuo](../../continuous-stand-validation.md). La revisión final de la rama identificó dos fallos de integración, resueltos en la corrección final autorizada; su revisión independiente enfocada sigue pendiente.
+La implementación de software cubre la coordinación de escaneo, guías acumuladas, devolución por sensores, pausa/reconexión y descarte de respuestas atrasadas. La prueba integrada y la comprobación enfocada de navegador están registradas en [la validación del escaneo continuo](../../continuous-stand-validation.md). La revisión final de la rama identificó dos fallos de integración, resueltos en la corrección final autorizada; su revisión independiente enfocada confirmó que todos los hallazgos accionables quedaron resueltos.
 
 El recorrido simulado confirmó que un sensor puede completar su tick mientras DINO sigue pendiente, que solo una clasificación Qwen confirmada por una detección DINO posterior activa la guía, y que añadir otro destino conserva el progreso existente. Las suites disponibles de software y las comprobaciones de sintaxis pasaron.
 
