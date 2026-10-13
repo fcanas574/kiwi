@@ -39,9 +39,12 @@ def _merge(base: dict, override: dict) -> dict:
 class Config:
     """Configuración de la estación. `data_dir` guarda ajustes de la pantalla, fotos y retroalimentación."""
 
-    def __init__(self, raw: dict, data_dir: Path):
+    def __init__(self, raw: dict, data_dir: Path, scan_pairing_key: str = ''):
         self.raw = raw
         self.data_dir = data_dir
+        # Keep the phone pairing secret out of the YAML payload and every
+        # general-purpose config/status serialization path.
+        self.scan_pairing_key = scan_pairing_key
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._settings_path = data_dir / 'settings.json'
         settings = self._load_settings()
@@ -96,6 +99,7 @@ def load_config(path: str | os.PathLike | None = None, overrides: dict | None = 
     env_pass = os.environ.get('KIWI_GRADIO_PASSWORD')
     if env_pass:
         raw['recognizer']['gradio_password'] = env_pass
+    scan_pairing_key = os.environ.get('KIWI_SCAN_PAIRING_KEY', '')
 
     data_dir = Path(os.environ.get('KIWI_DATA_DIR', PI_DIR / 'data'))
-    return Config(raw, data_dir)
+    return Config(raw, data_dir, scan_pairing_key)

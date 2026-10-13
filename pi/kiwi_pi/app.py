@@ -21,6 +21,8 @@ from PIL import Image
 from .camera import Camera, make_camera, normalize_upload
 from .config import Config, load_config
 from .recognizer import RecognizerError, decide, make_recognizer, validate_objects
+from .scan import ScanCoordinator
+from .scan_api import register_scan_routes
 from .station import Station
 
 STATIC = Path(__file__).parent / 'static'
@@ -78,10 +80,14 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
     async def lifespan(app: FastAPI):
         cam = camera or make_camera(cfg)
         cam.start()
-        station = Station(cfg, make_recognizer(cfg), camera_name=cam.name)
+        recognizer = make_recognizer(cfg)
+        station = Station(cfg, recognizer, camera_name=cam.name)
+        scan = ScanCoordinator(station, recognizer, cfg, time.monotonic)
         await station.start()
-        state.update(camera=cam, station=station, photos=PhotoStore())
+        state.update(camera=cam, station=station, scan=scan, photos=PhotoStore())
+        app.state.scan = scan
         yield
+        await scan.close()
         await station.stop()
         cam.stop()
 
@@ -89,6 +95,18 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
 
     def station() -> Station:
         return state['station']
+
+    def scan() -> ScanCoordinator:
+        return state['scan']
+
+    def live_snapshot() -> dict:
+        return {**station().snapshot(), 'scan': scan().snapshot()}
+
+    def require_no_continuous_scan() -> None:
+        if scan().snapshot()['capture_state'] == 'running' or station().continuous:
+            raise HTTPException(409, 'La estación está usando una guía de escaneo continuo.')
+
+    register_scan_routes(app, lambda: state['scan'], cfg)
 
     def is_admin(request: Request) -> bool:
         host = request.client.host if request.client else ''
@@ -133,7 +151,7 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
     @app.get('/api/status')
     async def status(request: Request):
         ui = cfg.section('ui')
-        return {**station().snapshot(), 'camera_available': state['camera'].available,
+        return {**live_snapshot(), 'camera_available': state['camera'].available,
                 'auto_send': bool(ui.get('auto_send')), 'test_mode': bool(cfg.section('decision').get('test_mode')),
                 'admin': is_admin(request)}
 
@@ -143,11 +161,11 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
 
         async def stream():
             try:
-                yield f'data: {json.dumps(station().snapshot())}\n\n'
+                yield f'data: {json.dumps(live_snapshot())}\n\n'
                 while not await request.is_disconnected():
                     try:
-                        message = await asyncio.wait_for(queue.get(), timeout=15)
-                        yield f'data: {json.dumps(message)}\n\n'
+                        await asyncio.wait_for(queue.get(), timeout=15)
+                        yield f'data: {json.dumps(live_snapshot())}\n\n'
                     except asyncio.TimeoutError:
                         yield ': ping\n\n'
             finally:
@@ -206,6 +224,7 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
     async def recognize(body: PhotoRef):
         item = state['photos'].get(body.photo_id)
         st = station()
+        require_no_continuous_scan()
         state['active_photo_id'] = body.photo_id
         st.cancel_guide()   # una foto nueva apaga la señal anterior
         version = st.recognition_version
@@ -260,11 +279,13 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
     async def next_tool(body: NextBody | None = None):
         if body and body.photo_id and state.get('active_photo_id') != body.photo_id:
             raise HTTPException(409, 'La estación está procesando otra foto.')
+        require_no_continuous_scan()
         station().cancel_guide()
         return {'ok': True}
 
     @app.post('/api/reject')
     async def reject(body: RejectBody):
+        require_no_continuous_scan()
         valid = {s.category for s in cfg.slots} | {OTHER_CATEGORY}
         if body.actual is not None and body.actual not in valid:
             raise HTTPException(400, 'Etiqueta desconocida.')
@@ -317,7 +338,7 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
     @app.post('/api/leds/off')
     async def leds_off(request: Request):
         require_admin(request)
-        station().cancel_guide()
+        scan().cancel_for_manual()
         return {'ok': True}
 
     @app.post('/api/sim/slots/{slot_id}')
