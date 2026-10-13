@@ -5,6 +5,11 @@
 server:
   host: 0.0.0.0          # 0.0.0.0 permite abrir la página desde un celular en la misma red
   port: 8000
+  # Vacíos: HTTP para desarrollo. Para HTTPS, configura ambos con los archivos del script.
+  tls_certfile: ""
+  tls_keyfile: ""
+  # HTTPS usa la IP reservada que está en el SAN del certificado, no localhost.
+  public_url: ""
   # Cambiar el endpoint, probar LEDs o simular sensores solo desde la propia Pi
   # (navegador del kiosco). true lo permite desde cualquier equipo de la red.
   allow_remote_admin: false

@@ -38,8 +38,19 @@ def main() -> None:
 
     cfg = load_config(args.config, MOCK if args.mock else SIM_HARDWARE if args.sim_hardware else None)
     server = cfg.section('server')
-    uvicorn.run(create_app(cfg), host=args.host or server.get('host', '0.0.0.0'),
-                port=args.port or int(server.get('port', 8000)), log_level='info' if args.verbose else 'warning')
+    tls_certfile = str(server.get('tls_certfile') or '').strip()
+    tls_keyfile = str(server.get('tls_keyfile') or '').strip()
+    if bool(tls_certfile) != bool(tls_keyfile):
+        raise ValueError('server.tls_certfile y server.tls_keyfile deben configurarse juntos.')
+
+    uvicorn_options = {
+        'host': args.host or server.get('host', '0.0.0.0'),
+        'port': args.port or int(server.get('port', 8000)),
+        'log_level': 'info' if args.verbose else 'warning',
+    }
+    if tls_certfile:
+        uvicorn_options.update(ssl_certfile=tls_certfile, ssl_keyfile=tls_keyfile)
+    uvicorn.run(create_app(cfg), **uvicorn_options)
 
 
 if __name__ == '__main__':
