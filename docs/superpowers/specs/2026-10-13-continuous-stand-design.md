@@ -158,8 +158,14 @@ Quedan fuera: ejecución de modelos en la Pi, transmisión WebRTC, app móvil na
 
 La implementación debe mantener aprobadas las pruebas actuales del modo manual y añadir pruebas independientes del hardware para el coordinador, el seguimiento y las guías continuas. La validación física y móvil permanece pendiente hasta disponer del equipo; no se considera cubierta por el simulador.
 
-## Siguiente etapa
+## Estado de validación al 13 de octubre de 2026
 
-Revisar y aprobar esta especificación escrita. Después se elaborará el plan de implementación con `superpowers:writing-plans`, y se revisará el plan y su método de ejecución antes de modificar código de producto.
+La implementación de software cubre la coordinación de escaneo, guías acumuladas, devolución por sensores, pausa/reconexión y descarte de respuestas atrasadas. La prueba integrada y la comprobación enfocada de navegador están registradas en [la validación del escaneo continuo](../../continuous-stand-validation.md). La validación completa de Task 7 y la revisión independiente de la rama siguen pendientes del controlador.
+
+El recorrido simulado confirmó que un sensor puede completar su tick mientras DINO sigue pendiente, que solo una clasificación DINO confirmada activa la guía, y que añadir otro destino conserva el progreso existente. Las suites disponibles de software y las comprobaciones de sintaxis pasaron.
+
+La validación de hardware y servicio real no se realizó: no hay Raspberry Pi, teléfono dedicado ni GPU de Colab conectados. La confianza de CA y la cámara trasera en el teléfono, QR real, carga y tiempos GPU, CPU/RAM/GPIO, cadencia efectiva y la meta física de ≤100 ms permanecen pendientes. No se infieren cifras de pruebas simuladas ni se declara cumplimiento físico.
+
+La auditoría estática premium conservó 15 errores `affordance.actionless-button` y 0 avisos; la herramienta no reconoce los manejadores de JavaScript, así que el resultado no se registra como un pase. El comportamiento de los controles cubiertos sí se comprobó en navegador. Task 6 tampoco generó ni decodificó una imagen QR real porque `qrencode` no estaba disponible.
 
 Referencias: [diseño multiobjeto actual](../../multiobject-integration-design.md), [validación anterior](../../multiobject-validation.md), [requisitos de cámara del navegador](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia).

@@ -79,6 +79,25 @@ El script instala dependencias, crea `config.yaml` y `.env`, registra el servici
 
 La pantalla se adapta a vertical (diseño de Figma, 390×844) y horizontal (800×480). Para la pantalla oficial en vertical, rotarla en *Preferencias → Configuración de pantalla*. El teclado en pantalla de Raspberry Pi OS (*squeekboard*) aparece al tocar el campo del endpoint.
 
+## Escaneo continuo desde el teléfono
+
+El teléfono dedicado y la Raspberry deben usar la misma Wi‑Fi. Reserva la IP de la Pi y completa [la preparación HTTPS local](../docs/local-phone-setup.md), incluida la confianza de la CA en el teléfono. Si cambias de teléfono, instala y confía la CA en el nuevo dispositivo antes de abrir Kiwi; cada navegador necesita esa preparación para dar acceso a la cámara.
+
+En `~/kiwi/pi/.env`, configura la clave de Colab y un código de emparejamiento distinto:
+
+```dotenv
+KIWI_API_KEY=la-misma-clave-del-secreto-de-Colab
+KIWI_SCAN_PAIRING_KEY=un-codigo-distinto-para-el-telefono
+```
+
+Reinicia `kiwi`, abre `https://<IP-reservada>:8000` en el teléfono y escribe el código en **Emparejar este teléfono**. La página no recibe `KIWI_API_KEY`. Pulsa **Iniciar escaneo** para activar la cámara trasera y enviar cuadros recientes a la Pi; el teléfono debe permanecer en primer plano. **Pausar escaneo** conserva las devoluciones. **Cancelar devoluciones** pausa el escaneo y borra el ciclo de guía. Al recuperar Wi‑Fi, vuelve a abrir o emparejar la página si lo solicita y pulsa **Iniciar escaneo**; la Raspberry conserva los destinos confirmados y pendientes durante la reconexión mientras el servicio siga activo.
+
+Una clasificación Qwen queda provisional hasta una detección DINO posterior compatible. Solo una categoría confirmada enciende su ubicación. Después de confirmarla, la categoría se suprime hasta tres detecciones válidas de ausencia; errores o pausas no cuentan como ausencia. Una falla de Colab conserva la guía y usa esperas de reintento limitadas. Si Colab reinicia y cambia la URL de ngrok, ejecuta la sección 6b del notebook y actualiza **Endpoint de Colab** desde la pantalla de la Pi.
+
+El escaneo solicita un cuadro por segundo como máximo, con lado mayor de 960 px y hasta 12 detecciones. La vista previa pide 15–30 FPS, pero esa cadencia no está medida en la Raspberry. DINO y Qwen siguen en Colab; no se instalan en la Pi. Para una sesión CPU lenta puedes aumentar `scan.max_gap_seconds` y mantener `recognizer.timeout_seconds` amplio; registra las medidas reales antes de ajustar y no asumas que habrá respuesta en tiempo real.
+
+El modo manual existente sigue disponible para tomar o subir una foto y reconocerla una vez. Gradio sirve para ese flujo manual; el escaneo continuo necesita REST de Colab (`/detect` y `/classify`).
+
 ## Conexiones
 
 Numeración **BCM**. Pines por defecto (cambiar en `config.yaml`):

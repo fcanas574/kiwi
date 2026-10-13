@@ -221,7 +221,7 @@ assert configured_public_url == 'https://192.168.1.20:8000'
 
 **Interfaces:** consume los contratos ya definidos; no introduce componentes ni optimizaciones adicionales.
 
-- [ ] Escribir una prueba integral con endpoints simulados y reloj controlado: estabilidad → Qwen provisional → siguiente detección confirma → primer LED → nuevo objetivo sin borrar confirmación → sensor final → escaneo sigue activo → ausencia válida permite otro ciclo. Incluir fallo de Colab, reconexión y respuesta atrasada.
+- [x] Escribir una prueba integral con endpoints simulados y reloj controlado: estabilidad → Qwen provisional → siguiente detección confirma → primer LED → nuevo objetivo sin borrar confirmación → sensor final → escaneo sigue activo → ausencia válida permite otro ciclo. Incluir fallo de Colab, reconexión y respuesta atrasada.
 
 ```python
 assert state_after_qwen['guide']['targets'] == []
@@ -231,13 +231,13 @@ assert state_after_new_target['guide']['pending'] == [7]
 assert state_after_final_sensor['guide']['phase'] == 'returned'
 assert state_after_final_sensor['scan']['capture_state'] == 'running'
 ```
-- [ ] Ejecutar `rtk proxy env PYTHONPATH=pi:colab python -m pytest pi/tests/test_scan_end_to_end.py -q`; si falla, corregir únicamente la integración responsable y repetir sus pruebas.
-- [ ] Ejecutar suite completa Python y todos los `pi/tests/test_ui_*.cjs`; validar sintaxis de notebook y `rtk git diff --check`. Registrar comandos y resultados en el documento de validación.
-- [ ] Repetir el recorrido web con simulador y verificar que solicitudes lentas no bloquean eventos de sensores. Documentar comprobaciones de GPU, certificado/teléfono y Pi física como pendientes si el equipo no está disponible.
-- [ ] En equipo disponible, medir CPU/RAM, cadencia de sensores y retraso añadido frente al modo sin escaneo. Meta: <= 100 ms adicionales para un evento ya antirreboteado y cero cambios perdidos; medir DINO/Qwen y tiempo hasta LED con uno y varios objetos. No sustituir medidas físicas por estimaciones.
-- [ ] Actualizar README con inicio desde página Raspberry/celular, emparejamiento, HTTPS local, controles, pausa/reconexión, supresiones, CPU lenta y uso manual conservado. Explicar que cambiar de celular requiere preparar su confianza de certificado.
+- [x] Ejecutar `rtk proxy env PYTHONPATH=pi:colab python -m pytest pi/tests/test_scan_end_to_end.py -q`; si falla, corregir únicamente la integración responsable y repetir sus pruebas.
+- [x] Ejecutar suite completa Python y todos los `pi/tests/test_ui_*.cjs`; validar sintaxis de notebook y `rtk git diff --check`. Registrar comandos y resultados en el documento de validación.
+- [x] Repetir el recorrido web con simulador y verificar que solicitudes lentas no bloquean eventos de sensores. Documentar comprobaciones de GPU, certificado/teléfono y Pi física como pendientes si el equipo no está disponible.
+- [ ] En equipo disponible, medir CPU/RAM, cadencia de sensores y retraso añadido frente al modo sin escaneo. Meta: <= 100 ms adicionales para un evento ya antirreboteado y cero cambios perdidos; medir DINO/Qwen y tiempo hasta LED con uno y varios objetos. No sustituir medidas físicas por estimaciones. **Pendiente: no hay Raspberry Pi, teléfono ni GPU disponibles.**
+- [x] Actualizar README con inicio desde página Raspberry/celular, emparejamiento, HTTPS local, controles, pausa/reconexión, supresiones, CPU lenta y uso manual conservado. Explicar que cambiar de celular requiere preparar su confianza de certificado.
 - [ ] Solicitar revisión independiente del cambio completo con especial atención a las cinco condiciones de Review Focus. Resolver hallazgos importantes con reproducciones fallidas antes de corregir y repetir las pruebas afectadas; seguir el protocolo del método de ejecución elegido.
-- [ ] Guardar evidencia, commits y limitaciones; marcar pasos efectivamente completados. Entregar la rama revisable y los enlaces de notebook/documentación. Publicación e integración siguen el alcance que el usuario autorice para esta nueva implementación; no activar servicios o cámaras en equipos ajenos automáticamente.
+- [x] Guardar evidencia, commits y limitaciones; marcar pasos efectivamente completados. Entregar la rama revisable y los enlaces de notebook/documentación. Publicación e integración siguen el alcance que el usuario autorice para esta nueva implementación; no activar servicios o cámaras en equipos ajenos automáticamente.
 
 ## Revisión del plan y ejecución
 
