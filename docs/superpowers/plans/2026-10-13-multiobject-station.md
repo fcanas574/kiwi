@@ -23,11 +23,11 @@
 
 ## Review Focus
 
-- Respuesta remota malformada: cuadros fuera de imagen, IDs repetidos o campos incompatibles no deben activar luces ni producir correcciones inválidas; Task 2.
+- Respuesta remota malformada: cuadros fuera de imagen, IDs repetidos o campos incompatibles no deben activar luces ni producir correcciones inválidas; Task 3.
 - Dos fotos de la misma categoría: los eventos de una operación anterior no deben actualizar la nueva pantalla; Tasks 2 y 4.
 - Dos objetos de la misma categoría: mostrar ambos cuadros, un único LED y progreso por ubicación; Tasks 2 y 4.
-- Un sensor cambia mientras otros objetivos siguen pendientes: conservar confirmaciones correctas y revertir solo el objetivo retirado; Task 3.
-- Corrección después de que la foto caducó o con otro objeto seleccionado: rechazarla sin guardar la imagen completa con una etiqueta incorrecta; Task 2.
+- Un sensor cambia mientras otros objetivos siguen pendientes: conservar confirmaciones correctas y revertir solo el objetivo retirado; Task 2.
+- Corrección después de que la foto caducó o con otro objeto seleccionado: rechazarla sin guardar la imagen completa con una etiqueta incorrecta; Task 3.
 
 ---
 
@@ -61,22 +61,7 @@ Contrato de guía: `{operation_id, phase, targets, pending, confirmed, wrong_slo
 - [ ] Añadir carga CPU NF4 a `colab/kiwi_vlm.py`, reutilizando la configuración del experimento CPU; GPU conserva el modelo Qwen3-VL-4B. Documentar la menor resolución de CPU.
 - [ ] Ejecutar las pruebas y validar la sintaxis de todas las celdas Python del notebook; commit de esta unidad.
 
-### Task 2: Contrato de la Pi y correcciones individuales
-
-**Files:** `pi/kiwi_pi/recognizer.py`, `pi/kiwi_pi/app.py`, `pi/config.example.yaml`, `pi/tests/test_station.py`, nuevo `pi/tests/test_multiobject_api.py`.
-
-**Interfaces:** `Recognizer.predict(jpeg)` entrega el contrato Colab; `Station.begin_guides(slots, operation_id, test_mode=False)` será implementado por Task 3. `RejectBody` añade `object_id`; cada objeto guardado incluye sus cuadros.
-
-- [ ] Crear pruebas de lista vacía, resultados mixtos, categoría sin ubicación, IDs repetidos, cuadro inválido y dos detecciones de la misma categoría. Exigir un único objetivo por ubicación y ningún LED para rechazados.
-- [ ] Crear pruebas de cancelación/respuesta atrasada y de corrección por `object_id`: el archivo guardado debe tener las dimensiones del recorte, no de la foto completa; foto caducada u objeto inexistente no deben guardar datos.
-- [ ] Ejecutar `rtk proxy env PYTHONPATH=pi /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests/test_multiobject_api.py -q` y confirmar los fallos esperados.
-- [ ] Validar explícitamente el contrato remoto; actualizar el cliente Gradio para tomar el JSON final de su respuesta de tres salidas y el simulador para devolver varios objetos. Mantener el driver REST en `/predict`.
-- [ ] Transformar todos los resultados en `/api/recognize`, asignar `operation_id` único, registrar por objeto e iniciar `begin_guides` una sola vez. No reinterpretar un rechazo explícito de Qwen como aceptación de producción.
-- [ ] Corregir `/api/reject` para guardar el recorte validado del objeto elegido y sus metadatos. Guardar una corrección cancela la operación activa, como define el diseño.
-- [ ] Configurar `timeout_seconds: 1800` en el ejemplo para admitir la prueba CPU lenta; documentar que GPU permite reducirlo después de medir la latencia y que un túnel externo también puede imponer límites.
-- [ ] Ejecutar pruebas; commit de esta unidad después de disponer del contrato de guía de Task 3.
-
-### Task 3: LEDs y verificación simultánea por sensores
+### Task 2: LEDs y verificación simultánea por sensores
 
 **Files:** `pi/kiwi_pi/station.py`, `pi/tests/test_station.py`, nuevo `pi/tests/test_multiobject_station.py`.
 
@@ -87,7 +72,22 @@ Contrato de guía: `{operation_id, phase, targets, pending, confirmed, wrong_slo
 - [ ] Sustituir el objetivo único por mapas/conjuntos de objetivos, pendientes, confirmados, bloqueados y equivocados. Evitar que las transiciones de un sensor borren el estado de otro.
 - [ ] Implementar azul por pendiente, verde por confirmado y rojo por posición equivocada. Un objetivo ocupado inicialmente requiere liberación antes de aceptar una nueva ocupación. Una retirada durante la operación revierte su confirmación.
 - [ ] Conservar el temporizador global de guía; al completar todos iniciar el reinicio automático. Timeout conserva el progreso visible y apaga todas las luces. Sin sensores no completar automáticamente.
-- [ ] Ejecutar pruebas de Tasks 2 y 3 y las cancelaciones anteriores; actualizar las pruebas antiguas al nuevo contrato; commit de la integración de ambos contratos.
+- [ ] Ejecutar las pruebas de sensores y actualizar las pruebas antiguas al contrato de guía; commit de esta unidad. La verificación de cancelaciones HTTP se completa en Task 3.
+
+### Task 3: Contrato de la Pi y correcciones individuales
+
+**Files:** `pi/kiwi_pi/recognizer.py`, `pi/kiwi_pi/app.py`, `pi/config.example.yaml`, `pi/tests/test_station.py`, nuevo `pi/tests/test_multiobject_api.py`.
+
+**Interfaces:** `Recognizer.predict(jpeg)` entrega el contrato Colab; `Station.begin_guides(slots, operation_id, test_mode=False)` será implementado por Task 2. `RejectBody` añade `object_id`; cada objeto guardado incluye sus cuadros.
+
+- [ ] Crear pruebas de lista vacía, resultados mixtos, categoría sin ubicación, IDs repetidos, cuadro inválido y dos detecciones de la misma categoría. Exigir un único objetivo por ubicación y ningún LED para rechazados.
+- [ ] Crear pruebas de cancelación/respuesta atrasada y de corrección por `object_id`: el archivo guardado debe tener las dimensiones del recorte, no de la foto completa; foto caducada u objeto inexistente no deben guardar datos.
+- [ ] Ejecutar `rtk proxy env PYTHONPATH=pi /tmp/kiwi-merge-venv/bin/python -m pytest pi/tests/test_multiobject_api.py -q` y confirmar los fallos esperados.
+- [ ] Validar explícitamente el contrato remoto; actualizar el cliente Gradio para tomar el JSON final de su respuesta de tres salidas y el simulador para devolver varios objetos. Mantener el driver REST en `/predict`.
+- [ ] Transformar todos los resultados en `/api/recognize`, asignar `operation_id` único, registrar por objeto e iniciar `begin_guides` una sola vez. No reinterpretar un rechazo explícito de Qwen como aceptación de producción.
+- [ ] Corregir `/api/reject` para guardar el recorte validado del objeto elegido y sus metadatos. Guardar una corrección cancela la operación activa, como define el diseño.
+- [ ] Configurar `timeout_seconds: 1800` en el ejemplo para admitir la prueba CPU lenta; documentar que GPU permite reducirlo después de medir la latencia y que un túnel externo también puede imponer límites.
+- [ ] Ejecutar pruebas; commit de esta unidad usando el contrato de guía de Task 2.
 
 ### Task 4: Cuadros y progreso en la interfaz
 
