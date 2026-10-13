@@ -396,3 +396,33 @@ def test_rejected_track_without_movement_after_ambiguity_stays_rejected():
     for frame_id, now in ((6, 6), (7, 6.5), (8, 7)):
         tracker.update(frame_id, SIZE, [detection()], now)
         assert tracker.next_candidate(now) is None
+
+
+def test_movement_from_rejected_crop_requires_fresh_stability_when_reference_differs():
+    tracker = Tracker(RULES)
+    reserved_box = [140, 90, 380, 450]
+    moved_box = [115, 90, 355, 450]
+    tracker.update(1, SIZE, [detection()], 0)
+    tracker.update(2, SIZE, [detection()], 0.5)
+    tracker.update(3, SIZE, [detection(reserved_box)], 1)
+    candidate = tracker.next_candidate(1)
+    assert candidate is not None
+    assert candidate['box'] == reserved_box
+    tracker.set_provisional(candidate['track_id'], candidate['revision'],
+                            recognition(accepted=False), 1)
+    assert len(tracker.update(4, SIZE, [detection(reserved_box)], 1.5)) == 1
+
+    # Compatible with the original reference, but moved beyond tolerance from
+    # the crop Qwen actually rejected. Cooldown has already elapsed.
+    tracker.update(5, SIZE, [detection(moved_box)], 6)
+    assert tracker.next_candidate(6) is None
+    assert tracker.snapshot()[0]['stable_samples'] == 1
+    assert tracker.snapshot()[0]['stable_since'] == 6
+    tracker.update(6, SIZE, [detection(moved_box)], 6.5)
+    assert tracker.next_candidate(6.5) is None
+    tracker.update(7, SIZE, [detection(moved_box)], 7)
+    retry = tracker.next_candidate(7)
+    assert retry is not None
+    assert retry['track_id'] == candidate['track_id']
+    assert retry['revision'] > candidate['revision']
+    assert retry['frame_id'] == 7

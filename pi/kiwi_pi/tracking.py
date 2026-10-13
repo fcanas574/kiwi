@@ -260,6 +260,9 @@ class Tracker:
                     track.recognition = recognition
                     track.category = None
                     track.rejected_box = track.provisional_box
+                    # Stability after rejection must measure movement from the
+                    # classified crop, which can differ from the old reference.
+                    track.stable_reference = track.rejected_box
                 events.append({'track_id': track.track_id,
                                'revision': track.revision,
                                'box': list(pixel_box),
