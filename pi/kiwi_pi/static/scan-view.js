@@ -23,6 +23,12 @@
       return `Esperando estabilidad · ${track.stable_samples || 1} cuadros`;
     }
 
+    function tracksForFrame(scan) {
+      const frame = scan.last_analyzed_frame;
+      if (!frame || frame.generation !== scan.generation || frame.session_id !== scan.session_id) return [];
+      return (scan.tracks || []).filter(track => track.frame_id === frame.sequence);
+    }
+
     function renderFrame(scan, slots) {
       const image = $('#scanAnalyzedImage');
       const empty = $('#scanEmptyFrame');
@@ -39,7 +45,7 @@
       image.hidden = false;
       empty.hidden = true;
       wrap.style.aspectRatio = `${frame.preview.width} / ${frame.preview.height}`;
-      const frameTracks = (scan.tracks || []).filter(track => track.frame_id === frame.sequence);
+      const frameTracks = tracksForFrame(scan);
       boxes.replaceChildren(...frameTracks.map(track => {
         const button = root.document.createElement('button');
         button.type = 'button';
@@ -56,8 +62,7 @@
     }
 
     function renderTracks(scan, slots) {
-      const frame = scan.last_analyzed_frame;
-      const tracks = frame ? (scan.tracks || []).filter(track => track.frame_id === frame.sequence) : [];
+      const tracks = tracksForFrame(scan);
       $('#scanTrackCount').textContent = String(tracks.length);
       if (!tracks.length) {
         $('#scanTrackList').replaceChildren(Object.assign(root.document.createElement('li'), {

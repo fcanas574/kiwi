@@ -515,6 +515,7 @@ function openLabelSheet(object) {
   $('#scanCorrectionNote').hidden = true;
   $('#labelSheetTitle').textContent = `¿Qué era el objeto ${object.id}?`;
   fillCorrectionOptions(object.category, submitCorrection);
+  $('#labelCancel').disabled = false;
   $('main').inert = true;
   $('#labelSheet').hidden = false;
   $('#labelOptions').querySelector('button:not(:disabled)')?.focus();
@@ -525,6 +526,7 @@ function closeScanCorrectionSurface() {
   if (correction && correction.url) URL.revokeObjectURL(correction.url);
   state.scanCorrection = null;
   state.scanCorrectionBusy = false;
+  $('#labelCancel').disabled = false;
   $('#scanCorrectionCrop').removeAttribute('src');
   $('#scanCorrectionCrop').hidden = true;
   $('#scanCorrectionNote').hidden = true;
@@ -571,6 +573,7 @@ async function openScanCorrection(track) {
     $('#scanCorrectionNote').dataset.tone = '';
     $('#scanCorrectionNote').hidden = false;
     fillCorrectionOptions(track.category, submitScanCorrection);
+    $('#labelCancel').disabled = false;
     $('main').inert = true;
     $('#labelSheet').hidden = false;
     $('#labelOptions').querySelector('button:not(:disabled)')?.focus();
@@ -606,6 +609,15 @@ async function cancelScanCorrection() {
     closeScanCorrectionSurface();
     await loadStatus();
   } catch (error) {
+    if (error.status === 401) {
+      closeScanCorrectionSurface();
+      state.scanController.suspend();
+      $('#pairingPanel').open = true;
+      $('#pairStatus').textContent = error.message;
+      $('#pairCode').focus();
+      renderScan();
+      return;
+    }
     if (error.status === 404 || error.status === 410) {
       closeScanCorrectionSurface();
       toast(error.message);
@@ -632,6 +644,15 @@ async function submitScanCorrection(actual) {
     await loadStatus();
     toast('Corrección guardada. El ciclo se canceló y el escaneo permanece pausado.');
   } catch (error) {
+    if (error.status === 401) {
+      closeScanCorrectionSurface();
+      state.scanController.suspend();
+      $('#pairingPanel').open = true;
+      $('#pairStatus').textContent = error.message;
+      $('#pairCode').focus();
+      renderScan();
+      return;
+    }
     if (error.status === 404 || error.status === 410) {
       closeScanCorrectionSurface();
       toast(error.message);
@@ -643,7 +664,6 @@ async function submitScanCorrection(actual) {
     $('#scanCorrectionNote').hidden = false;
     buttons.forEach(button => { button.disabled = false; });
     state.scanCorrectionBusy = false;
-    if (error.status === 401) $('#pairingPanel').open = true;
   }
 }
 
@@ -944,7 +964,7 @@ $('#forceSelect').addEventListener('change', (e) => {
 $('#brand').addEventListener('click', openDiag);
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden || state.scanController.getState().capture_state !== 'running') return;
+  if (!document.hidden || !['starting', 'running'].includes(state.scanController.getState().capture_state)) return;
   state.scanRecoverAfterReconnect = false;
   state.scanController.pause().catch(() => {});
   scanCamera.stop();

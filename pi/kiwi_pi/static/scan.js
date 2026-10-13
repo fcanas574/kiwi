@@ -61,6 +61,7 @@
     let retryIndex = 0;
     let scheduled = null;
     let unsubscribe = null;
+    let guideVersion = 0;
 
     function snapshotForCallback() {
       return {
@@ -90,9 +91,14 @@
       } catch { /* A stale preview is safe to leave for the browser to collect. */ }
     }
 
-    function mergeServerState(snapshot, { keepLocalFrame = true } = {}) {
+    function mergeServerState(snapshot, { keepLocalFrame = true, keepGuide = false, allowSession = false } = {}) {
       const incoming = responseState(snapshot);
       if (!incoming || typeof incoming !== 'object') return current;
+      const changedSession = current.session_id && incoming.session_id
+        && incoming.session_id !== current.session_id;
+      if (changedSession && !allowSession) return current;
+      if (!changedSession && Number.isInteger(incoming.generation)
+          && incoming.generation < current.generation) return current;
       const changedGeneration = Number.isInteger(incoming.generation)
         && incoming.generation !== current.generation;
       if (running && changedGeneration) {
@@ -104,6 +110,7 @@
       for (const key of ['session_id', 'generation', 'capture_state', 'last_sequence', 'busy',
         'tracks', 'connection_error', 'retry_after_seconds', 'detection_seconds',
         'classification_seconds', 'guide']) {
+        if (key === 'guide' && keepGuide) continue;
         if (Object.prototype.hasOwnProperty.call(incoming, key)) patch[key] = incoming[key];
       }
       if (incoming.capture_state === 'paused' && running) {
@@ -114,6 +121,12 @@
       }
       if (!keepLocalFrame && Object.prototype.hasOwnProperty.call(incoming, 'last_analyzed_frame')) {
         patch.last_analyzed_frame = incoming.last_analyzed_frame;
+      }
+      // A server snapshot can stop local capture, but only explicit Start can
+      // resume it (including after a hidden-page startup was invalidated).
+      if (!running && !starting && patch.capture_state === 'running') {
+        patch.capture_state = 'paused';
+        patch.busy = false;
       }
       emit(patch);
       return current;
@@ -188,6 +201,7 @@
           throw new Error('La sesión de escaneo no está lista.');
         }
         sequence = request.sequence;
+        const guideAtRequest = guideVersion;
         const result = await transport.sendFrame(request);
         if (!running || disposed || runEpoch !== epoch) return;
         if (!matchesRequest(result, request)) {
@@ -207,7 +221,9 @@
           session_id: request.session_id,
         };
         const serverError = response.connection_error || null;
-        mergeServerState(response);
+        // SSE owns sensor progress delivered while this HTTP result was in
+        // transit. The response still owns the analysis of this exact JPEG.
+        mergeServerState(response, { keepGuide: guideVersion !== guideAtRequest });
         emit({
           capture_state: 'running',
           last_analyzed_frame: analyzedFrame,
@@ -270,7 +286,14 @@
             mergeServerState(paused);
           }
           const started = await transport.start(sessionId || undefined);
-          if (disposed || runEpoch !== epoch) return snapshotForCallback();
+          if (disposed || runEpoch !== epoch) {
+            const abandoned = responseState(started);
+            if (abandoned && abandoned.session_id && typeof transport.pause === 'function') {
+              const paused = await transport.pause(abandoned.session_id);
+              if (!disposed) mergeServerState(paused, { allowSession: true });
+            }
+            return snapshotForCallback();
+          }
           const server = responseState(started);
           if (!server || server.capture_state !== 'running' || !server.session_id) {
             throw new Error('La estación no inició el escaneo.');
@@ -278,7 +301,10 @@
           sequence = 0;
           if (!frameBusy) lastFrameStartedAt = null;
           retryIndex = 0;
-          mergeServerState(server);
+          mergeServerState(server, { allowSession: true });
+          if (current.session_id !== server.session_id || current.generation !== server.generation) {
+            throw new Error('La sesión cambió mientras iniciaba. Vuelve a iniciar el escaneo.');
+          }
           running = true;
           emit({ capture_state: 'running', busy: false, error: null, connection_error: null });
           void captureAndSend(runEpoch);
@@ -287,12 +313,13 @@
           if (runEpoch === epoch && !disposed) {
             running = false;
             emit({ capture_state: 'paused', busy: false, error: messageFor(error) });
-            if (cameraStarted && typeof camera.stop === 'function') {
-              try { await camera.stop(); } catch { /* Keep the original start failure. */ }
-            }
           }
           throw error;
         } finally {
+          if (cameraStarted && (!running || disposed || runEpoch !== epoch)
+              && typeof camera.stop === 'function') {
+            try { await camera.stop(); } catch { /* Invalidated startup must not retain the camera. */ }
+          }
           starting = false;
           startPromise = null;
         }
@@ -353,7 +380,11 @@
 
     function syncFromServer(snapshot) {
       if (disposed) return snapshotForCallback();
-      return mergeServerState(snapshot);
+      const incoming = responseState(snapshot);
+      const accepted = incoming && (!current.session_id || !incoming.session_id || incoming.session_id === current.session_id)
+        && (!Number.isInteger(incoming.generation) || incoming.generation >= current.generation);
+      if (accepted && Object.prototype.hasOwnProperty.call(incoming, 'guide')) guideVersion += 1;
+      return mergeServerState(incoming);
     }
 
     function dispose() {

@@ -3,6 +3,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const KiwiScan = require('../kiwi_pi/static/scan.js');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const appSource = fs.readFileSync(require('node:path').join(__dirname, '../kiwi_pi/static/app.js'), 'utf8');
 
 class FakeClock {
   constructor() {
@@ -286,3 +289,193 @@ test('the annotated analyzed image is the exact still paired with its response',
   assert.equal(states.at(-1).last_analyzed_frame, controller.getState().last_analyzed_frame);
   controller.dispose();
 });
+
+
+test('delayed frame preserves newer SSE sensor progress and matching analyzed still', async () => {
+  const frame = deferred();
+  const { controller, snapshot } = harness({ frameResults: [frame] });
+  await controller.start();
+  await flushPromises();
+  controller.syncFromServer(snapshot({ last_sequence: 1, guide: { operation_id: 'return-1', confirmed: [1], pending: [6] } }));
+  frame.resolve({ state: snapshot({ last_sequence: 1, tracks: [{ track_id: 8, frame_id: 1 }],
+    guide: { operation_id: 'return-1', confirmed: [], pending: [1, 6] } }) });
+  await flushPromises();
+  assert.deepEqual(controller.getState().guide.confirmed, [1]);
+  assert.equal(controller.getState().tracks[0].track_id, 8);
+  assert.equal(controller.getState().last_analyzed_frame.preview.src, 'still-1');
+  controller.dispose();
+});
+
+test('older generations and foreign session SSE cannot replace paused state', async () => {
+  const { controller, snapshot } = harness();
+  await controller.start();
+  await controller.pause();
+  const paused = controller.getState();
+  controller.syncFromServer(snapshot({ generation: 1, capture_state: 'running', guide: { confirmed: [] } }));
+  assert.equal(controller.getState().generation, paused.generation);
+  assert.equal(controller.getState().capture_state, 'paused');
+  controller.syncFromServer(snapshot({ session_id: 'old-session', generation: 99, capture_state: 'running' }));
+  assert.equal(controller.getState().session_id, paused.session_id);
+  assert.equal(controller.getState().generation, paused.generation);
+  controller.dispose();
+});
+
+// Run the real app functions and visibility listener against just their DOM
+// surface; camera permission and network timing are supplied by the harness.
+function appSurface(controller, transport) {
+  const elements = new Map();
+  let context;
+  function element(id) {
+    if (!elements.has(id)) elements.set(id, {
+      id, hidden: true, disabled: false, inert: false, open: false, isConnected: true,
+      dataset: {}, buttons: [], textContent: '',
+      focus() { context.document.activeElement = this; },
+      removeAttribute(name) { delete this[name]; },
+      replaceChildren(...children) { this.buttons = children; },
+      addEventListener() {},
+      querySelectorAll() { return id === '#labelSheet' ? [...element('#labelOptions').buttons, element('#labelCancel')] : this.buttons; },
+      querySelector() { return this.buttons.find(button => !button.disabled); },
+    });
+    return elements.get(id);
+  }
+  const state = { scanController: controller, status: { slots: [{ category: 'solder', label: 'Soldador' }] }, scanCorrectionBusy: false };
+  let stopCamera = () => {};
+  context = {
+    state, scanTransport: transport, scanCamera: { stop() { return stopCamera(); } },
+    $: element, URL: { createObjectURL() { return 'blob:crop'; }, revokeObjectURL() {} },
+    toast() {}, renderScan() {}, async loadStatus() {},
+    document: { hidden: true, activeElement: element('#scanStartBtn'), createElement() { return { dataset: {}, addEventListener() {}, focus() {} }; } },
+  };
+  vm.createContext(context);
+  for (const name of ['fillCorrectionOptions', 'openLabelSheet', 'closeScanCorrectionSurface', 'openScanCorrection', 'cancelScanCorrection', 'submitScanCorrection', 'submitCorrection']) {
+    const start = appSource.search(new RegExp('(?:async )?function ' + name + '\\('));
+    assert.ok(start >= 0, `real app function ${name} must exist`);
+    const tail = appSource.slice(start);
+    const next = tail.slice(1).search(/\n(?:async )?function /);
+    vm.runInContext(next < 0 ? tail : tail.slice(0, next + 1), context);
+  }
+  const visibilityStart = appSource.indexOf("document.addEventListener('visibilitychange',");
+  const visibilityEnd = appSource.indexOf("window.addEventListener('pagehide'", visibilityStart);
+  context.document.addEventListener = (_, handler) => { context.onVisibility = handler; };
+  vm.runInContext(appSource.slice(visibilityStart, visibilityEnd), context);
+  return { context, element, setCameraStop(callback) { stopCamera = callback; } };
+}
+
+for (const pending of ['camera', 'start request']) {
+  test(`hiding during ${pending} startup invalidates capture and releases late camera`, async () => {
+    const { controller, camera, transport, sentFrames, snapshot } = harness();
+    const wait = deferred();
+    let stops = 0;
+    camera.stop = async () => { stops += 1; };
+    if (pending === 'camera') camera.start = () => wait.promise;
+    else {
+      const originalStart = transport.start;
+      transport.start = async (...args) => { await wait.promise; return originalStart(...args); };
+    }
+    const surface = appSurface(controller, transport);
+    surface.setCameraStop(() => camera.stop());
+    const startup = controller.start();
+    await flushPromises();
+    assert.equal(controller.getState().capture_state, 'starting');
+    surface.context.onVisibility();
+    wait.resolve();
+    await startup;
+    await flushPromises();
+    assert.equal(controller.getState().capture_state, 'paused');
+    assert.equal(sentFrames.length, 0);
+    assert.equal(snapshot().capture_state, 'paused', 'late successful server Start is paused too');
+    assert.ok(stops >= 1, 'camera acquired by invalidated startup is released');
+    await controller.start();
+    await flushPromises();
+    assert.equal(sentFrames.length, 1, 'explicit Start is required to resume');
+    controller.dispose();
+  });
+}
+
+function correctionSurface(error) {
+  const controller = { getState: () => ({ session_id: 's', generation: 2, capture_state: 'paused', last_analyzed_frame: { sequence: 1 } }), suspend() {}, syncFromServer() {} };
+  const transport = {
+    async prepareCorrection() { return { correction_id: 'c', generation: 3 }; },
+    async correctionCrop() { return {}; },
+    async cancelCorrection() { if (error) throw error; },
+    async submitCorrection() { if (error) throw error; },
+  };
+  return appSurface(controller, transport);
+}
+for (const action of ['cancel', 'submit']) {
+  test(`correction ${action} restores Cancel on a later scan and manual sheet`, async () => {
+    const { context, element } = correctionSurface();
+    const track = { track_id: 1, revision: 1, frame_id: 1 };
+    await context.openScanCorrection(track);
+    if (action === 'cancel') await context.cancelScanCorrection();
+    else await context.submitScanCorrection('otros');
+    await context.openScanCorrection(track);
+    assert.equal(element('#labelCancel').disabled, false);
+    await context.cancelScanCorrection();
+    assert.equal(element('#labelSheet').hidden, true);
+    context.openLabelSheet({ id: 2, category: 'solder' });
+    assert.equal(element('#labelCancel').disabled, false);
+  });
+  test(`correction ${action} 401 releases modal and focuses accessible pairing`, async () => {
+    const error = Object.assign(new Error('Empareja otra vez'), { status: 401 });
+    const { context, element } = correctionSurface(error);
+    await context.openScanCorrection({ track_id: 1, revision: 1, frame_id: 1 });
+    if (action === 'cancel') await context.cancelScanCorrection();
+    else await context.submitScanCorrection('otros');
+    assert.equal(element('#labelSheet').hidden, true);
+    assert.equal(element('main').inert, false);
+    assert.equal(element('#pairingPanel').open, true);
+    assert.equal(context.document.activeElement, element('#pairCode'));
+    assert.equal(context.state.scanCorrection, null);
+    assert.equal(context.state.scanController.getState().capture_state, 'paused');
+  });
+}
+
+
+test('a delayed Start cannot resume a newer paused generation received from SSE', async () => {
+  const { controller, transport, snapshot, sentFrames } = harness();
+  const delayed = deferred();
+  transport.start = () => delayed.promise;
+  const startup = controller.start();
+  await flushPromises();
+  controller.syncFromServer(snapshot({ session_id: 'session-1', generation: 2, capture_state: 'paused' }));
+  delayed.resolve(snapshot({ session_id: 'session-1', generation: 1, capture_state: 'running' }));
+  await startup.catch(() => {});
+  await flushPromises();
+  assert.equal(controller.getState().generation, 2);
+  assert.equal(controller.getState().capture_state, 'paused');
+  assert.equal(sentFrames.length, 0);
+  controller.dispose();
+});
+
+test('an explicit Start may establish a fresh server session with its own generation', async () => {
+  const { controller, transport, snapshot } = harness();
+  await controller.start();
+  await controller.pause();
+  transport.start = async () => snapshot({ session_id: 'fresh-session', generation: 1, capture_state: 'running' });
+  await controller.start();
+  assert.equal(controller.getState().session_id, 'fresh-session');
+  assert.equal(controller.getState().generation, 1);
+  controller.dispose();
+});
+
+
+for (const mismatch of ['generation', 'session_id']) {
+  test(`view retains prior still without overlay or correction rows for a different ${mismatch}`, () => {
+    const { context, element } = appSurface({}, {});
+    for (const node of ['#scanAnalyzedImageWrap', '#scanMap']) element(node).style = { setProperty() {} };
+    for (const node of ['#scanStartBtn', '#scanPauseBtn', '#scanCancelBtn']) element(node).setAttribute = () => {};
+    context.document.querySelector = element;
+    context.KiwiMultiobject = { boxStyle: () => ({}) };
+    context.document.createElement = () => ({ style: {}, dataset: {}, append() {}, setAttribute() {}, addEventListener() {} });
+    vm.runInContext(fs.readFileSync(require('node:path').join(__dirname, '../kiwi_pi/static/scan-view.js'), 'utf8'), context);
+    const scan = { session_id: 'current', generation: 2, capture_state: 'paused', guide: {}, tracks: [{ track_id: 1, frame_id: 1, box: [0, 0, 10, 10] }],
+      last_analyzed_frame: { session_id: 'current', generation: 2, sequence: 1, preview: { src: 'blob:retained', width: 960, height: 720 } } };
+    scan.last_analyzed_frame[mismatch] = mismatch === 'generation' ? 1 : 'previous';
+    context.KiwiScanView.create({ controller: { getState: () => scan }, getStatus: () => ({ slots: [] }) }).render();
+    assert.equal(element('#scanAnalyzedImage').src, 'blob:retained');
+    assert.equal(element('#scanAnalyzedImage').hidden, false);
+    assert.equal(element('#scanAnalyzedBoxes').buttons.length, 0);
+    assert.equal(element('#scanTrackCount').textContent, '0');
+  });
+}
