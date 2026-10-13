@@ -49,9 +49,10 @@ class _Track:
     provisional: dict | None = None
     provisional_revision: int | None = None
     provisional_box: tuple[float, float, float, float] | None = None
+    provisional_frame_id: int | None = None
     reservation: _Reservation | None = None
     last_attempt_at: float | None = None
-    rejected_revision: int | None = None
+    rejected_box: tuple[float, float, float, float] | None = None
     failure_sample_after: int | None = None
     failure_sample_seen: bool = True
 
@@ -71,11 +72,13 @@ class Tracker:
         self._next_track_id = 1
         self._known_categories: set[str] = set()
         self._visibility: dict[str, bool | None] = {}
-        self._last_uncertain_categories: set[str] = set()
+        self._last_frame_id: int | None = None
 
     def update(self, frame_id: int, image_size: tuple[int, int],
                detections: list[dict], now: float) -> list[dict]:
-        """Apply one valid DINO sample and confirm compatible Qwen results."""
+        """Apply a strictly newer DINO sample and confirm compatible Qwen results."""
+        if self._last_frame_id is not None and frame_id <= self._last_frame_id:
+            return []
         width, height = image_size
         if width <= 0 or height <= 0:
             raise ValueError('image_size must contain positive width and height')
@@ -87,6 +90,7 @@ class Tracker:
                 pixel_box, normalized_box = parsed
                 sample.append((pixel_box, normalized_box))
 
+        self._last_frame_id = frame_id
         tracks = list(self._tracks.values())
         scores = [[self._iou(track.box, item[1]) for track in tracks]
                   for item in sample]
@@ -165,16 +169,22 @@ class Tracker:
                     track.provisional = None
                     track.provisional_revision = None
                     track.provisional_box = None
+                    track.provisional_frame_id = None
                     if track.state == 'provisional':
                         track.state = 'observing'
-                track.missing_count += 1
-                track.stable_reference = None
+                    # Plausible presence retains the track and category even
+                    # through persistent ambiguity. Only actual unmatched
+                    # samples count toward expiry.
+                    track.missing_count = 0
+                    track.last_seen = now
+                else:
+                    track.missing_count += 1
+                # Retain the reference so motion across a tolerated gap is
+                # detected, but require a fresh stable sequence on return.
                 track.stable_count = 0
                 track.stable_since = None
                 if (now - track.last_seen > float(self.rules['max_gap_seconds'])
                         or track.missing_count >= int(self.rules['missing_samples'])):
-                    if track.category and track.track_id in uncertain_tracks:
-                        uncertain_categories.add(track.category)
                     self._tracks.pop(track.track_id, None)
                 continue
 
@@ -190,9 +200,10 @@ class Tracker:
                 track.provisional = None
                 track.provisional_revision = None
                 track.provisional_box = None
+                track.provisional_frame_id = None
                 track.reservation = None
                 track.last_attempt_at = None
-                track.rejected_revision = None
+                track.rejected_box = None
                 track.failure_sample_after = None
                 track.failure_sample_seen = True
                 track.stable_reference = None
@@ -205,6 +216,8 @@ class Tracker:
                 track.stable_count = 1
                 track.stable_since = now
             elif self._compatible(track.stable_reference, normalized_box, image_size):
+                if track.stable_count == 0:
+                    track.stable_since = now
                 track.stable_count += 1
             else:
                 track.revision += 1
@@ -214,6 +227,7 @@ class Tracker:
                 track.provisional = None
                 track.provisional_revision = None
                 track.provisional_box = None
+                track.provisional_frame_id = None
                 if track.state not in ('accepted', 'rejected'):
                     track.state = 'observing'
 
@@ -223,12 +237,14 @@ class Tracker:
             track.frame_id = frame_id
             track.last_seen = now
 
-            if track.failure_sample_after is not None and frame_id != track.failure_sample_after:
+            if track.failure_sample_after is not None and frame_id > track.failure_sample_after:
                 track.failure_sample_seen = True
 
             if (track.provisional is not None
                     and track.provisional_revision == track.revision
                     and track.provisional_box is not None
+                    and track.provisional_frame_id is not None
+                    and frame_id > track.provisional_frame_id
                     and self._compatible(track.provisional_box, normalized_box, image_size)):
                 recognition = dict(track.provisional)
                 if recognition.get('recognized') is True:
@@ -243,7 +259,7 @@ class Tracker:
                     track.state = 'rejected'
                     track.recognition = recognition
                     track.category = None
-                    track.rejected_revision = track.revision
+                    track.rejected_box = track.provisional_box
                 events.append({'track_id': track.track_id,
                                'revision': track.revision,
                                'box': list(pixel_box),
@@ -252,6 +268,7 @@ class Tracker:
                 track.provisional = None
                 track.provisional_revision = None
                 track.provisional_box = None
+                track.provisional_frame_id = None
                 track.reservation = None
             elif track.provisional is not None:
                 # The object is still associated, but its current crop no longer
@@ -259,6 +276,7 @@ class Tracker:
                 track.provisional = None
                 track.provisional_revision = None
                 track.provisional_box = None
+                track.provisional_frame_id = None
                 track.reservation = None
                 if track.state == 'provisional':
                     track.state = 'observing'
@@ -290,7 +308,6 @@ class Tracker:
             self._tracks[track.track_id] = track
             self._next_track_id += 1
 
-        self._last_uncertain_categories = uncertain_categories
         self._visibility = {
             category: (True if category in definitely_visible else
                        None if category in uncertain_categories else False)
@@ -334,6 +351,7 @@ class Tracker:
         track.provisional = dict(recognition)
         track.provisional_revision = revision
         track.provisional_box = reservation.normalized_box
+        track.provisional_frame_id = reservation.frame_id
         track.last_attempt_at = now
         track.state = 'provisional'
 
@@ -357,7 +375,7 @@ class Tracker:
         self._next_track_id = 1
         self._known_categories.clear()
         self._visibility.clear()
-        self._last_uncertain_categories.clear()
+        self._last_frame_id = None
 
     def snapshot(self) -> list[dict]:
         """Return a compact copy of current track state for diagnostics/UI use."""
@@ -385,7 +403,8 @@ class Tracker:
     def _retry_ready(self, track: _Track, now: float) -> bool:
         if track.last_attempt_at is not None and now - track.last_attempt_at < float(self.rules['retry_seconds']):
             return False
-        if track.state == 'rejected' and track.rejected_revision == track.revision:
+        if (track.state == 'rejected' and track.rejected_box is not None
+                and self._compatible(track.rejected_box, track.box, track.image_size)):
             return False
         if track.failure_sample_after is not None and not track.failure_sample_seen:
             return False

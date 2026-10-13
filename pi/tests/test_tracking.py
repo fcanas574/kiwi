@@ -290,3 +290,109 @@ def test_known_category_is_absent_only_after_a_valid_empty_sample():
 
     tracker.update(5, SIZE, [], 2)
     assert tracker.category_visibility() == {'servo_motor': False}
+
+
+def test_persistent_ambiguity_never_becomes_category_absence():
+    tracker = Tracker(RULES)
+    stable_track(tracker)
+    candidate = tracker.next_candidate(1)
+    tracker.set_provisional(candidate['track_id'], candidate['revision'], recognition(), 1)
+    tracker.update(4, SIZE, [detection()], 1.5)
+    near_duplicate = [125, 90, 365, 450]
+    for frame_id in range(5, 30):
+        tracker.update(frame_id, SIZE,
+                       [detection(), detection(near_duplicate, object_id=2)], frame_id / 2)
+        assert tracker.category_visibility() == {'servo_motor': None}
+        assert len(tracker.snapshot()) == 1
+    tracker.update(30, SIZE, [detection()], 15)
+    assert tracker.category_visibility() == {'servo_motor': True}
+    for frame_id in range(31, 34):
+        tracker.update(frame_id, SIZE, [], frame_id / 2)
+        assert tracker.category_visibility() == {'servo_motor': False}
+    assert tracker.snapshot() == []
+
+
+def test_rejected_track_retries_after_movement_across_tolerated_missing_samples():
+    for missing_samples in (1, 2):
+        tracker = Tracker(RULES)
+        stable_track(tracker)
+        candidate = tracker.next_candidate(1)
+        tracker.set_provisional(candidate['track_id'], candidate['revision'],
+                                recognition(accepted=False), 1)
+        tracker.update(4, SIZE, [detection()], 1.5)
+        for offset in range(missing_samples):
+            tracker.update(5 + offset, SIZE, [], 2 + offset / 2)
+        moved = [150, 90, 390, 450]
+        first_frame = 5 + missing_samples
+        for offset in range(3):
+            tracker.update(first_frame + offset, SIZE, [detection(moved)], 3 + offset / 2)
+            assert tracker.next_candidate(3 + offset / 2) is None
+        retry = tracker.next_candidate(6)
+        assert retry is not None
+        assert retry['track_id'] == candidate['track_id']
+        assert retry['revision'] > candidate['revision']
+
+
+def test_rejected_track_without_movement_across_missing_sample_stays_rejected():
+    tracker = Tracker(RULES)
+    stable_track(tracker)
+    candidate = tracker.next_candidate(1)
+    tracker.set_provisional(candidate['track_id'], candidate['revision'],
+                            recognition(accepted=False), 1)
+    tracker.update(4, SIZE, [detection()], 1.5)
+    tracker.update(5, SIZE, [], 2)
+    for frame_id, now in ((6, 6), (7, 6.5), (8, 7)):
+        tracker.update(frame_id, SIZE, [detection()], now)
+        assert tracker.next_candidate(now) is None
+
+
+def test_provisional_requires_strictly_later_source_frame():
+    tracker = Tracker(RULES)
+    stable_track(tracker)
+    candidate = tracker.next_candidate(1)
+    tracker.set_provisional(candidate['track_id'], candidate['revision'], recognition(), 1.1)
+    before = tracker.snapshot()
+    for frame_id in (3, 2):
+        assert tracker.update(frame_id, SIZE, [detection()], 1.5) == []
+        assert tracker.snapshot() == before
+        assert tracker.category_visibility() == {}
+    assert len(tracker.update(4, SIZE, [detection()], 2)) == 1
+
+
+def test_duplicate_and_stale_frames_do_not_count_for_stability_or_absence():
+    tracker = Tracker(RULES)
+    tracker.update(1, SIZE, [detection()], 0)
+    for frame_id in (1, 0, 1):
+        tracker.update(frame_id, SIZE, [detection()], 1)
+    assert tracker.snapshot()[0]['stable_samples'] == 1
+    assert tracker.next_candidate(1) is None
+    tracker.update(2, SIZE, [detection()], 1)
+    tracker.update(3, SIZE, [detection()], 1.5)
+    candidate = tracker.next_candidate(1.5)
+    tracker.set_provisional(candidate['track_id'], candidate['revision'], recognition(), 1.5)
+    tracker.update(4, SIZE, [detection()], 2)
+    before = tracker.snapshot()
+    for frame_id in (4, 3, 2):
+        assert tracker.update(frame_id, SIZE, [], 30) == []
+        assert tracker.category_visibility() == {'servo_motor': True}
+        assert tracker.snapshot() == before
+    tracker.update(5, SIZE, [], 2.5)
+    assert tracker.snapshot()[0]['missing_samples'] == 1
+    assert tracker.category_visibility() == {'servo_motor': False}
+    tracker.reset()
+    tracker.update(1, SIZE, [detection()], 3)
+    assert tracker.snapshot()[0]['frame_id'] == 1
+
+
+def test_rejected_track_without_movement_after_ambiguity_stays_rejected():
+    tracker = Tracker(RULES)
+    stable_track(tracker)
+    candidate = tracker.next_candidate(1)
+    tracker.set_provisional(candidate['track_id'], candidate['revision'],
+                            recognition(accepted=False), 1)
+    tracker.update(4, SIZE, [detection()], 1.5)
+    tracker.update(5, SIZE,
+                   [detection(), detection([125, 90, 365, 450], object_id=2)], 2)
+    for frame_id, now in ((6, 6), (7, 6.5), (8, 7)):
+        tracker.update(frame_id, SIZE, [detection()], now)
+        assert tracker.next_candidate(now) is None
