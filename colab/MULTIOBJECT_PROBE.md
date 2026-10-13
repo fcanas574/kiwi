@@ -13,4 +13,6 @@ Esta prueba no usa la verificación opcional de EmbeddingGemma, no cambia `/pred
 
 Validación de código: tres pruebas verifican eliminación de duplicados, límites de cuadros, envío de cada recorte y conservación de rechazos. Para ejecutarlas: `PYTHONPATH=colab python -m pytest colab/test_multiobject_probe.py -q`.
 
+Resultado del 13 de octubre de 2026: Colab rechazó la GPU por límite de uso. DINO se ejecutó en CPU sobre el montaje artificial y produjo 9 detecciones, 8 después de eliminar cuadros similares, en 27,643 segundos de inferencia. Encontró regiones sobre el multímetro, servo y cautín, junto con objetos de fondo y cuadros duplicados. Sus etiquetas mezclaron varias categorías en algunas regiones. Qwen no se ejecutó; la precisión del flujo completo sigue pendiente. [Resultados](probe_results/dino_cpu.json) y [visualización de los cuadros devueltos](probe_results/dino_cpu_boxes.jpg).
+
 Implementación del detector basada en la [documentación oficial de Transformers](https://huggingface.co/docs/transformers/model_doc/grounding-dino).

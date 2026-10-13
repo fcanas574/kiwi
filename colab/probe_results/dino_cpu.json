@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-13",
+  "environment": "Colab CPU; GPU connection rejected by usage limits",
+  "sample": "artificial montage of three repository reference photos",
+  "qwen_executed": false,
+  "threshold": 0.25,
+  "text_threshold": 0.2,
+  "raw_detections": 9,
+  "selected_detections": 8,
+  "detection_seconds": 27.643,
+  "objects": [
+    {
+      "box": [
+        45,
+        78,
+        274,
+        261
+      ],
+      "detector_label": "a digital multimeter",
+      "detector_score": 0.4924776256084442
+    },
+    {
+      "box": [
+        808,
+        98,
+        1151,
+        170
+      ],
+      "detector_label": "function generator a power adapter a soldering iron",
+      "detector_score": 0.3736285865306854
+    },
+    {
+      "box": [
+        67,
+        26,
+        156,
+        94
+      ],
+      "detector_label": "capitor a yellow multimeter box",
+      "detector_score": 0.36018791794776917
+    },
+    {
+      "box": [
+        798,
+        4,
+        1189,
+        292
+      ],
+      "detector_label": "a soldering station a laboratory power supply",
+      "detector_score": 0.33598625659942627
+    },
+    {
+      "box": [
+        614,
+        19,
+        658,
+        50
+      ],
+      "detector_label": "a yellow multimeter box",
+      "detector_score": 0.31920135021209717
+    },
+    {
+      "box": [
+        538,
+        117,
+        573,
+        190
+      ],
+      "detector_label": "a servo motor an oscilloscope a variable capacitor",
+      "detector_score": 0.3102896809577942
+    },
+    {
+      "box": [
+        529,
+        110,
+        584,
+        197
+      ],
+      "detector_label": "a servo motor an oscilloscope a function generator a capacitor",
+      "detector_score": 0.2797888517379761
+    },
+    {
+      "box": [
+        537,
+        97,
+        647,
+        163
+      ],
+      "detector_label": "a power adapter",
+      "detector_score": 0.26392653584480286
+    }
+  ]
+}
