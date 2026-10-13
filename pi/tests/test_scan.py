@@ -530,3 +530,25 @@ def test_correction_saves_only_crop(cfg):
         assert not list(cfg.data_dir.glob('*scan*.jpg'))
 
     run_case(case, cfg)
+
+
+def test_frozen_correction_cannot_cancel_successor_guide_in_same_generation(cfg):
+    async def case(scan, station, recognizer):
+        session = scan.start('phone')
+        await process(scan, session, 1)
+        track = scan.snapshot()['tracks'][0]
+        frozen = scan.freeze_correction(session['session_id'], track['track_id'], track['revision'])
+        station.begin_guides([cfg.slot_by_id(1)], 'successor-manual')
+        before = scan.snapshot()
+        with pytest.raises(ScanError) as stale:
+            scan.submit_correction(frozen['correction_id'], 'solder')
+        assert stale.value.status_code == 409
+        assert scan.snapshot() == before
+        assert station.operation_id == 'successor-manual'
+        assert station.pending == {1}
+        assert not list((cfg.data_dir / 'feedback').rglob('*.jpg'))
+        assert scan.correction_crop(frozen['correction_id'])
+        scan.cancel_correction(frozen['correction_id'])
+        assert station.operation_id == 'successor-manual'
+
+    run_case(case, cfg)
