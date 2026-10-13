@@ -13,6 +13,8 @@ const state = {
   result: null,       // respuesta de /api/recognize
   screen: 'capture',
   mediaStream: null,
+  recognitionVersion: 0,
+  recognizing: false,
 };
 
 // ---------- utilidades ----------
@@ -205,6 +207,7 @@ function onFilePicked(input, source) {
 }
 
 async function afterPhoto(photo) {
+  state.recognitionVersion += 1;
   state.photo = photo;
   state.result = null;
   $('#photoImg').src = photo.url;
@@ -220,18 +223,26 @@ async function afterPhoto(photo) {
 // ---------- reconocimiento ----------
 async function send() {
   if (!state.photo) return;
+  const photoId = state.photo.photo_id;
+  const request = ++state.recognitionVersion;
+  state.recognizing = true;
   const button = $('#sendBtn');
   setLoading(button, true);
   button.querySelector('.label').textContent = 'Identificando…';
   try {
-    state.result = await postJSON('/api/recognize', { photo_id: state.photo.photo_id });
+    const result = await postJSON('/api/recognize', { photo_id: photoId });
+    if (request !== state.recognitionVersion || state.photo?.photo_id !== photoId) return;
+    state.result = result;
     renderResult();
     go('result');
   } catch (error) {
-    toast(error.message);
+    if (request === state.recognitionVersion) toast(error.message);
   } finally {
-    setLoading(button, false);
-    button.querySelector('.label').textContent = 'Enviar a la API';
+    if (request === state.recognitionVersion) {
+      state.recognizing = false;
+      setLoading(button, false);
+      button.querySelector('.label').textContent = 'Enviar a la API';
+    }
   }
 }
 
@@ -369,15 +380,24 @@ async function primaryResultAction() {
 }
 
 async function retrySend() {
+  if (!state.photo) return;
+  const photoId = state.photo.photo_id;
+  const request = ++state.recognitionVersion;
+  state.recognizing = true;
   const button = $('#nextBtn');
   setLoading(button, true);
   try {
-    state.result = await postJSON('/api/recognize', { photo_id: state.photo.photo_id });
+    const result = await postJSON('/api/recognize', { photo_id: photoId });
+    if (request !== state.recognitionVersion || state.photo?.photo_id !== photoId) return;
+    state.result = result;
     renderResult();
   } catch (error) {
-    toast(error.message);
+    if (request === state.recognitionVersion) toast(error.message);
   } finally {
-    setLoading(button, false);
+    if (request === state.recognitionVersion) {
+      state.recognizing = false;
+      setLoading(button, false);
+    }
   }
 }
 
@@ -420,6 +440,13 @@ async function submitCorrection(actual) {
 }
 
 function resetToCapture() {
+  const wasRecognizing = state.recognizing;
+  state.recognitionVersion += 1;
+  state.recognizing = false;
+  setLoading($('#sendBtn'), false);
+  $('#sendBtn').querySelector('.label').textContent = 'Enviar a la API';
+  setLoading($('#nextBtn'), false);
+  if (wasRecognizing) postJSON('/api/next').catch((error) => toast(error.message));
   state.result = null;
   state.photo = null;
   state._wasGuiding = false;

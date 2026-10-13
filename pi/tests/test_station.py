@@ -1,5 +1,8 @@
 import io
 import time
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 from fastapi.testclient import TestClient
@@ -146,3 +149,46 @@ def test_import_feedback_into_references(tmp_path):
     assert (dataset / 'references' / 'otros' / 'otros_004.jpg').exists()
     assert (feedback / '_importado' / 'otros' / 'a.json').exists()
     assert build_zip(dataset)[1] == 2
+
+
+@pytest.mark.parametrize('cancel_route', ['/api/next', '/api/reject'])
+def test_cancel_discards_pending_recognition(cfg, monkeypatch, cancel_route):
+    from kiwi_pi.recognizer import MockRecognizer
+    started, release = Event(), Event()
+
+    async def delayed_predict(self, jpeg):
+        started.set()
+        await asyncio.to_thread(release.wait, 2)
+        return api_result('oscilloscope')
+
+    monkeypatch.setattr(MockRecognizer, 'predict', delayed_predict)
+    with TestClient(create_app(cfg)) as client, ThreadPoolExecutor() as pool:
+        photo = client.post('/api/upload', files={'file': ('a.jpg', jpeg_bytes(), 'image/jpeg')}).json()
+        pending = pool.submit(client.post, '/api/recognize', json={'photo_id': photo['photo_id']})
+        try:
+            assert started.wait(2)
+            assert client.post(cancel_route, json={'photo_id': photo['photo_id'], 'actual': 'otros'}).status_code == 200
+        finally:
+            release.set()
+        assert pending.result().json()['status'] == 'error'
+        status = client.get('/api/status').json()
+        assert status['guide']['phase'] == 'idle'
+        assert all(slot['led'] == 'off' for slot in status['slots'])
+
+
+def test_multiple_wrong_slots_remain_tracked(cfg):
+    with TestClient(create_app(cfg)) as client:
+        photo = client.post('/api/upload', files={'file': ('a.jpg', jpeg_bytes(), 'image/jpeg')}).json()
+        client.post('/api/sim/recognizer', params={'category': 'function_generator'})
+        client.post('/api/recognize', json={'photo_id': photo['photo_id']})
+        client.post('/api/sim/slots/5', json={'occupied': True})
+        wait_for(client, lambda s: s['guide']['wrong'] == 5)
+        client.post('/api/sim/slots/6', json={'occupied': True})
+        wait_for(client, lambda s: s['slots'][5]['led'] == 'wrong')
+        client.post('/api/sim/slots/6', json={'occupied': False})
+        status = wait_for(client, lambda s: s['slots'][5]['led'] == 'off')
+        assert status['guide']['phase'] == 'wrong_slot'
+        assert status['guide']['wrong'] == 5
+        client.post('/api/sim/slots/5', json={'occupied': False})
+        status = wait_for(client, lambda s: s['guide']['phase'] == 'guiding')
+        assert status['slots'][4]['led'] == 'off'

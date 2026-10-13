@@ -57,6 +57,8 @@ class Station:
         self.phase = 'idle'
         self.target: Slot | None = None
         self.wrong: int | None = None
+        self.wrong_slots: set[int] = set()
+        self.recognition_version = 0
         self.started_at = 0.0
         self.test_mode = False
         self.target_was_occupied = False
@@ -140,6 +142,7 @@ class Station:
         self.leds.all_off()
         self.target = slot
         self.wrong = None
+        self.wrong_slots.clear()
         self.test_mode = test_mode
         self.phase = 'guiding'
         self.started_at = time.monotonic()
@@ -149,6 +152,7 @@ class Station:
         self.notify()
 
     def cancel_guide(self) -> None:
+        self.recognition_version += 1
         if self._timer:
             self._timer.cancel()
             self._timer = None
@@ -156,6 +160,7 @@ class Station:
         self.phase = 'idle'
         self.target = None
         self.wrong = None
+        self.wrong_slots.clear()
         self.test_mode = False
         self.notify()
 
@@ -167,6 +172,8 @@ class Station:
 
     def _on_returned(self) -> None:
         self.phase = 'returned'
+        self.wrong = None
+        self.wrong_slots.clear()
         self.leds.all_off()
         self.leds.set(self.target.id, 'ok')
         self._set_timer(max(self.ok_seconds, self.auto_reset), self.cancel_guide)
@@ -189,13 +196,15 @@ class Station:
                 self.target_was_occupied = False
             return
         if occupied and previous is False:
+            self.wrong_slots.add(slot_id)
             self.wrong = slot_id
             self.phase = 'wrong_slot'
             self.leds.set(slot_id, 'wrong')
-        elif not occupied and slot_id == self.wrong:
+        elif not occupied and slot_id in self.wrong_slots:
             self.leds.set(slot_id, 'off')
-            self.wrong = None
-            self.phase = 'guiding'
+            self.wrong_slots.remove(slot_id)
+            self.wrong = min(self.wrong_slots) if self.wrong_slots else None
+            self.phase = 'wrong_slot' if self.wrong_slots else 'guiding'
         self.notify()
 
     def simulate_sensor(self, slot_id: int, occupied: bool) -> None:

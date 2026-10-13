@@ -200,12 +200,15 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
         item = state['photos'].get(body.photo_id)
         st = station()
         st.cancel_guide()   # una foto nueva apaga la señal anterior
+        version = st.recognition_version
         started = time.perf_counter()
         try:
             api = await st.recognizer.predict(item['jpeg'])
         except RecognizerError as exc:
             await st.refresh_health()
             return {'status': 'error', 'reason': str(exc)}
+        if version != st.recognition_version:
+            return {'status': 'error', 'reason': 'Reconocimiento cancelado o reemplazado por otra foto.'}
         decision = decide(cfg, api)
         slot = cfg.slot_for(decision.category)
         labels = {s.category: s.label for s in cfg.slots} | {OTHER_CATEGORY: 'Ninguna herramienta'}

@@ -6,7 +6,7 @@ Interfaz del diseño de Figma (**Captura → Revisión → Resultado**) servida 
 flowchart LR
     T[Teléfono<br>toma o sube la foto] -- Wi-Fi --> S[Servidor kiwi_pi<br>FastAPI en la Pi]
     U[Pantalla táctil<br>de la Pi] -- HTTP / SSE --> S
-    S -- POST /predict --> A[Colab<br>EmbeddingGemma 2<br>ngrok]
+    S -- POST /predict --> A[Colab<br>Qwen3-VL o<br>EmbeddingGemma 2<br>ngrok]
     S --> L[LEDs por posición<br>GPIO · WS2812 · ESP32]
     P[Sensores de presencia<br>por posición] --> S
 ```
@@ -47,10 +47,10 @@ El mismo código corre en una laptop y en la Pi; entre fases solo cambian los dr
 
 **Fase 1 — reconocimiento real desde el teléfono, sin Pi.** LEDs y sensores simulados en la laptop.
 
-1. En Colab, ejecutar las secciones 1–5 y la **6b**. Copiar la URL `…ngrok-free.app/predict`.
+1. En Colab, ejecutar las secciones 1–5, **5b** (opcional, Qwen) y la **6b**. Copiar la URL `…ngrok-free.app/predict`.
 2. En la laptop, crear la configuración: `cp config.example.yaml config.yaml` y editar en `config.yaml`:
    - `recognizer.url`: la URL copiada.
-   - `decision.test_mode: true` (mientras los umbrales no estén calibrados, para que se vea el LED simulado).
+   - Mantener `decision.test_mode: false` para respetar el rechazo del modelo. Usar modo prueba únicamente con hardware simulado y durante pruebas controladas.
 3. Arrancar con la clave del secreto de Colab:
    ```bash
    KIWI_API_KEY='la-misma-clave-de-colab' .venv/bin/python -m kiwi_pi --sim-hardware
@@ -72,7 +72,7 @@ git clone https://github.com/fcanas574/kiwi.git ~/kiwi && cd ~/kiwi/pi && bash d
 
 El script instala dependencias, crea `config.yaml` y `.env`, registra el servicio `kiwi` y abre Chromium en modo kiosco al iniciar sesión. Después:
 
-1. En Colab, ejecutar las secciones 1–5 y la **6b** del notebook. Copiar la URL `…ngrok-free.app/predict`.
+1. En Colab, ejecutar las secciones 1–5, **5b** (opcional, Qwen) y la **6b** del notebook. Copiar la URL `…ngrok-free.app/predict`.
 2. Poner la clave en `~/kiwi/pi/.env` (`KIWI_API_KEY=…`, la misma del secreto de Colab) y `sudo systemctl restart kiwi`.
 3. Pegar la URL en **Endpoint de Colab** de la pantalla (solo editable desde la propia Pi) o en `recognizer.url`. El indicador debe cambiar a **API en línea**.
 4. Ajustar en `config.yaml` las 9 herramientas, sus posiciones y los drivers de LEDs y sensores. Reiniciar con `sudo systemctl restart kiwi`.
@@ -118,23 +118,28 @@ Con `sensors.driver: none` la estación solo guía: el LED se apaga tras `guide_
 
 ## Reconocimiento y umbrales
 
-**Recomendado: VLM (sección 5b del notebook).** Qwen3-VL-4B reconoce las herramientas sin fotos de referencia y rechaza objetos ajenos por sí mismo. La decisión se toma en Colab (probabilidad ≥ 0,90, margen ≥ 0,50 y, si hay fotos de referencia, coincidencia con EmbeddingGemma); en la Pi dejar `decision.min_similarity` y `min_margin` en `null`. Evaluación con 55 fotos: todas las vistas frontales correctas; las vistas traseras o laterales se rechazan con «Muestra el frente». Para agregar o cambiar una herramienta basta con editar su descripción en `CATEGORIES`/`VLM_DESCRIPTIONS` (`colab/kiwi_vlm.py`).
+**Modo VLM (sección 5b):** Qwen3-VL-4B puntúa las opciones de herramientas y `otros`. Colab aplica umbrales iniciales de 0,90 y margen 0,50, y, si hay referencias, exige coincidencia con EmbeddingGemma. Las puntuaciones son normalizadas entre las letras candidatas; no son probabilidades calibradas. En la Pi dejar `decision.min_similarity` y `min_margin` en `null` para respetar el rechazo del VLM. La precisión y latencia requieren pruebas con los equipos reales.
 
+Gradio y ngrok son accesos distintos al mismo reconocedor activo. Gradio sirve la página del celular; ngrok expone la API REST para la estación. Ambos pueden usar Qwen o EmbeddingGemma.
 
 - `recognizer.driver: rest` usa la sección 6b del notebook (`POST /predict`, `GET /health`, clave `Bearer`). `gradio` usa el enlace `gradio.live` de la sección 6 (`pip install gradio_client`).
 - La Pi solo enciende un LED cuando el resultado se acepta y la categoría es una de las 9 configuradas. Ante rechazo, error o nueva foto, apaga la señal anterior.
-- Mientras `MIN_SIMILARITY`/`MIN_MARGIN` no estén calibrados, la API devuelve `recognized: false`. Para el día de integración: `decision.test_mode: true` acepta el mejor candidato y la pantalla muestra **Modo prueba**. Para la demo final, calibrar los umbrales en el notebook o en `decision.min_similarity`/`min_margin` de la Pi (calculados solo con las 9 categorías de la estación) y desactivar el modo prueba.
+- En modo EmbeddingGemma, mientras `MIN_SIMILARITY`/`MIN_MARGIN` no estén calibrados, la API devuelve `recognized: false`. Para el día de integración: `decision.test_mode: true` acepta el mejor candidato y la pantalla muestra **Modo prueba**. Para la demo final, calibrar los umbrales en el notebook o en `decision.min_similarity`/`min_margin` de la Pi (calculados solo con las 9 categorías de la estación) y desactivar el modo prueba.
 - La barra del resultado muestra la **similitud** (p. ej. 0,87). No es un porcentaje de confianza, por eso no se muestra como «%».
 - **No es correcta** apaga la guía y pregunta **¿Qué era?** (una de las 9 herramientas o *No es una herramienta del taller*). La foto se guarda en `data/feedback/<etiqueta real>/`.
-- Para que el modelo aprenda de esas correcciones: `.venv/bin/python -m kiwi_pi.dataset` las copia a `dataset_prepared/references/`, actualiza `manifest.csv` y regenera `references.zip`. Después, subir el ZIP a Drive y ejecutar de nuevo las secciones 4 y 5 del notebook.
-- La categoría **`otros`** guarda referencias negativas (objetos que no deben encender un LED). Cuantos más objetos comunes del taller tenga (resistencias, cables, placas, herramientas de mano), menos falsos positivos habrá. Si un objeto ajeno se acepta por error, márcalo como *No es una herramienta del taller*.
+- Para que el modelo aprenda de esas correcciones: `.venv/bin/python -m kiwi_pi.dataset` las copia a `dataset_prepared/references/`, actualiza `manifest.csv` y regenera `references.zip`. Después, subir el ZIP a Drive y ejecutar de nuevo las secciones 4 y 5, y la 5b si se usa Qwen.
+- La categoría **`otros`** guarda referencias negativas (objetos que no deben encender un LED). Añadir ejemplos variados de objetos ajenos y verificar su efecto en fotos nuevas; más referencias no garantiza menos falsos positivos. Si un objeto ajeno se acepta por error, márcalo como *No es una herramienta del taller*.
 
 ## Antes de la demostración
 
-- [ ] `API en línea` en la barra superior y modo `image_to_image` en diagnóstico.
+- [ ] `API en línea` en la barra superior y modo `vlm` o `image_to_image` en diagnóstico, según el reconocedor elegido.
 - [ ] **Probar LEDs** enciende las posiciones 1→9 en orden y en el lugar correcto.
 - [ ] Cada sensor cambia entre Vacía/Ocupada al colocar y retirar su herramienta.
 - [ ] Las 9 herramientas encienden su LED; un objeto ajeno no enciende ninguno.
 - [ ] Colocar una herramienta en otra posición la marca en rojo; en la suya, verde.
 - [ ] Umbrales calibrados y `test_mode: false`.
 - [ ] Plan de recuperación: si cae Colab/ngrok, volver a ejecutar la sección 6b y pegar la nueva URL en la pantalla.
+
+## Verificación de software
+
+Desde `pi/`: `.venv/bin/python -m pytest -q tests`. Con Node.js instalado, `node --test tests/test_ui_requests.cjs` comprueba que las respuestas de fotos descartadas no vuelvan a mostrarse. Estas pruebas no validan los pines ni el modelo en una GPU.
