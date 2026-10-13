@@ -32,6 +32,21 @@ decision:
   # Útil el día de integración; desactivar para la demo final.
   test_mode: false
 
+scan:
+  max_fps: 1
+  max_side: 960
+  association_iou: 0.3
+  ambiguity_delta: 0.1
+  stable_samples: 3
+  stable_seconds: 1
+  stable_iou: 0.6
+  area_tolerance: 0.15
+  center_tolerance: 0.02
+  missing_samples: 3
+  max_gap_seconds: 10
+  retry_seconds: 5
+  rearm_samples: 3
+
 camera:
   # none: la foto se toma o se sube desde el teléfono (flujo principal).
   # auto | picamera2 | opencv: usar una cámara conectada a la Pi.
