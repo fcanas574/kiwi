@@ -55,6 +55,11 @@ class Station:
         self.ok_seconds = float(cfg.section('leds').get('ok_seconds', 4))
         self.health = Health(False, 'Comprobando…')
         self.phase = 'idle'
+        self.targets: dict[int, Slot] = {}
+        self.pending: set[int] = set()
+        self.confirmed: set[int] = set()
+        self.blocked: set[int] = set()
+        self.operation_id: str | None = None
         self.target: Slot | None = None
         self.wrong: int | None = None
         self.wrong_slots: set[int] = set()
@@ -122,7 +127,10 @@ class Station:
             'columns': int(self.cfg.section('station').get('shelf_columns', 3)),
             'slots': [{**s.as_dict(), 'occupied': self.sensors.state.get(s.id), 'led': leds[s.id]}
                       for s in self.cfg.slots],
-            'guide': {'phase': self.phase, 'target': self.target.as_dict() if self.target else None,
+            'guide': {'operation_id': self.operation_id, 'targets': [s.as_dict() for s in self.targets.values()],
+                      'pending': sorted(self.pending), 'confirmed': sorted(self.confirmed),
+                      'blocked': sorted(self.blocked), 'wrong_slots': sorted(self.wrong_slots),
+                      'phase': self.phase, 'target': self.target.as_dict() if self.target else None,
                       'wrong': self.wrong, 'test_mode': self.test_mode, 'remaining': remaining,
                       'verify': self.sensors.enabled, 'target_was_occupied': self.target_was_occupied},
         }
@@ -139,15 +147,25 @@ class Station:
         self._timer = asyncio.create_task(run())
 
     def begin_guide(self, slot: Slot, test_mode: bool = False) -> None:
-        self.leds.all_off()
-        self.target = slot
-        self.wrong = None
-        self.wrong_slots.clear()
+        # Compatibility for the old internal single-slot caller during migration.
+        self.begin_guides([slot], 'single', test_mode)
+
+    def begin_guides(self, slots: list[Slot], operation_id: str, test_mode: bool = False) -> None:
+        self.cancel_guide()
+        self.targets = {slot.id: slot for slot in slots}
+        if not self.targets:
+            return
+        self.operation_id = operation_id
+        self.pending = set(self.targets)
+        self.confirmed.clear()
+        self.blocked = {slot for slot in self.targets if self.sensors.state.get(slot) is True}
+        self.target = next(iter(self.targets.values())) if len(self.targets) == 1 else None
+        self.target_was_occupied = bool(self.blocked)
         self.test_mode = test_mode
         self.phase = 'guiding'
         self.started_at = time.monotonic()
-        self.target_was_occupied = self.sensors.state.get(slot.id) is True
-        self.leds.set(slot.id, 'guide')
+        for slot in self.targets:
+            self.leds.set(slot, 'guide')
         self._set_timer(self.guide_timeout, self._on_timeout)
         self.notify()
 
@@ -158,7 +176,13 @@ class Station:
             self._timer = None
         self.leds.all_off()
         self.phase = 'idle'
+        self.targets.clear()
+        self.pending.clear()
+        self.confirmed.clear()
+        self.blocked.clear()
+        self.operation_id = None
         self.target = None
+        self.target_was_occupied = False
         self.wrong = None
         self.wrong_slots.clear()
         self.test_mode = False
@@ -170,42 +194,37 @@ class Station:
             self.phase = 'timeout'
             self.notify()
 
-    def _on_returned(self) -> None:
-        self.phase = 'returned'
-        self.wrong = None
-        self.wrong_slots.clear()
-        self.leds.all_off()
-        self.leds.set(self.target.id, 'ok')
-        self._set_timer(max(self.ok_seconds, self.auto_reset), self.cancel_guide)
-        if self.ok_seconds < self.auto_reset:
-            asyncio.get_running_loop().call_later(self.ok_seconds, self._ok_off, self.target.id)
+    def _update_progress(self) -> None:
+        self.wrong = min(self.wrong_slots) if self.wrong_slots else None
+        self.target_was_occupied = bool(self.blocked)
+        if not self.pending and not self.wrong_slots:
+            self.phase = 'returned'
+            self._set_timer(max(self.ok_seconds, self.auto_reset), self.cancel_guide)
+        else:
+            self.phase = 'wrong_slot' if self.wrong_slots else 'guiding'
         self.notify()
-
-    def _ok_off(self, slot_id: int) -> None:
-        if self.leds.modes.get(slot_id) == 'ok':
-            self.leds.set(slot_id, 'off')
 
     async def on_sensor(self, slot_id: int, previous: bool | None, occupied: bool | None) -> None:
         self.notify()
-        if self.phase not in ('guiding', 'wrong_slot') or self.target is None:
+        if not self.sensors.enabled or self.phase not in ('guiding', 'wrong_slot'):
             return
-        if slot_id == self.target.id:
-            if occupied:
-                self._on_returned()
-            elif previous:   # alguien la retiró: deja de considerarse ocupada antes de devolverla
-                self.target_was_occupied = False
-            return
-        if occupied and previous is False:
+        if slot_id in self.targets:
+            if occupied is False:
+                self.blocked.discard(slot_id)
+                self.confirmed.discard(slot_id)
+                self.pending.add(slot_id)
+                self.leds.set(slot_id, 'guide')
+            elif occupied is True and previous is False and slot_id not in self.blocked:
+                self.pending.discard(slot_id)
+                self.confirmed.add(slot_id)
+                self.leds.set(slot_id, 'ok')
+        elif occupied is True and previous is False:
             self.wrong_slots.add(slot_id)
-            self.wrong = slot_id
-            self.phase = 'wrong_slot'
             self.leds.set(slot_id, 'wrong')
-        elif not occupied and slot_id in self.wrong_slots:
-            self.leds.set(slot_id, 'off')
+        elif occupied is False and slot_id in self.wrong_slots:
             self.wrong_slots.remove(slot_id)
-            self.wrong = min(self.wrong_slots) if self.wrong_slots else None
-            self.phase = 'wrong_slot' if self.wrong_slots else 'guiding'
-        self.notify()
+            self.leds.set(slot_id, 'off')
+        self._update_progress()
 
     def simulate_sensor(self, slot_id: int, occupied: bool) -> None:
         self.sensors.simulate(slot_id, occupied)
