@@ -76,7 +76,7 @@ def test_full_flow_correct_and_wrong_slot(cfg):
 
         client.post('/api/sim/recognizer', params={'category': 'function_generator'})
         result = client.post('/api/recognize', json={'photo_id': photo['photo_id']}).json()
-        assert result['status'] == 'accepted' and result['slot']['id'] == 3
+        assert result['status'] == 'accepted' and result['slots'][0]['id'] == 3
 
         status = client.get('/api/status').json()
         assert status['guide']['phase'] == 'guiding'
@@ -105,7 +105,7 @@ def test_reject_saves_feedback_and_turns_off(cfg):
         photo = client.post('/api/upload', files={'file': ('a.jpg', jpeg_bytes(), 'image/jpeg')}).json()
         client.post('/api/sim/recognizer', params={'category': 'oscilloscope'})
         client.post('/api/recognize', json={'photo_id': photo['photo_id']})
-        client.post('/api/reject', json={'photo_id': photo['photo_id'], 'actual': 'otros'})
+        client.post('/api/reject', json={'photo_id': photo['photo_id'], 'object_id': 1, 'actual': 'otros'})
         status = client.get('/api/status').json()
         assert status['guide']['phase'] == 'idle'
         assert list((cfg.data_dir / 'feedback' / 'otros').glob('*.jpg'))
@@ -159,7 +159,8 @@ def test_cancel_discards_pending_recognition(cfg, monkeypatch, cancel_route):
     async def delayed_predict(self, jpeg):
         started.set()
         await asyncio.to_thread(release.wait, 2)
-        return api_result('oscilloscope')
+        from test_multiobject_api import response, obj
+        return response([obj(1, 'oscilloscope')])
 
     monkeypatch.setattr(MockRecognizer, 'predict', delayed_predict)
     with TestClient(create_app(cfg)) as client, ThreadPoolExecutor() as pool:

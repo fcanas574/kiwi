@@ -20,7 +20,7 @@ recognizer:
   # Solo para gradio: usuario kiwi y la contraseña de la sección 6 (o KIWI_GRADIO_PASSWORD).
   gradio_user: kiwi
   gradio_password: ""
-  timeout_seconds: 30
+  timeout_seconds: 1800
   health_interval_seconds: 15
 
 decision:

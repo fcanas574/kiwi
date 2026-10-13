@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import io
 import json
 import time
 import uuid
@@ -15,10 +16,11 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from PIL import Image
 
 from .camera import Camera, make_camera, normalize_upload
 from .config import Config, load_config
-from .recognizer import RecognizerError, decide, make_recognizer
+from .recognizer import RecognizerError, decide, make_recognizer, validate_objects
 from .station import Station
 
 STATIC = Path(__file__).parent / 'static'
@@ -52,6 +54,7 @@ class PhotoRef(BaseModel):
 
 
 class RejectBody(PhotoRef):
+    object_id: int | None = None
     actual: str | None = None   # categoría real, 'otros' (objeto ajeno) o None si no se indicó
 
 
@@ -199,6 +202,7 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
     async def recognize(body: PhotoRef):
         item = state['photos'].get(body.photo_id)
         st = station()
+        state['active_photo_id'] = body.photo_id
         st.cancel_guide()   # una foto nueva apaga la señal anterior
         version = st.recognition_version
         started = time.perf_counter()
@@ -209,27 +213,43 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
             return {'status': 'error', 'reason': str(exc)}
         if version != st.recognition_version:
             return {'status': 'error', 'reason': 'Reconocimiento cancelado o reemplazado por otra foto.'}
-        decision = decide(cfg, api)
-        slot = cfg.slot_for(decision.category)
+        try:
+            with Image.open(io.BytesIO(item['jpeg'])) as image:
+                image_size = image.size
+            raw_objects = validate_objects(api, image_size)
+        except RecognizerError as exc:
+            return {'status': 'error', 'reason': str(exc)}
+        operation_id = uuid.uuid4().hex
         labels = {s.category: s.label for s in cfg.slots} | {OTHER_CATEGORY: 'Ninguna herramienta'}
-        result = {
-            'status': 'accepted' if decision.accepted else 'rejected',
-            'photo_id': body.photo_id,
-            'category': decision.category,
-            'label': labels.get(decision.category, decision.category),
-            'similarity': decision.similarity,
-            'margin': decision.margin,
-            'reason': decision.reason,
-            'test_mode': decision.test_mode,
-            'mode': decision.mode,
-            'slot': slot.as_dict() if slot and decision.accepted else None,
-            'ranking': [{**r, 'label': labels.get(r['object'], r['object'])} for r in decision.ranking],
-            'elapsed_seconds': round(time.perf_counter() - started, 2),
-        }
+        objects, slots = [], {}
+        for raw in raw_objects:
+            recognition = raw['recognition']
+            decision = decide(cfg, recognition)
+            if not raw['recognized'] and not cfg.section('decision').get('test_mode'):
+                decision.accepted = False
+            slot = cfg.slot_for(decision.category)
+            result = {**raw, 'photo_id': body.photo_id, 'operation_id': operation_id,
+                      'status': 'accepted' if decision.accepted else 'rejected',
+                      'category': decision.category, 'label': labels.get(decision.category, decision.category),
+                      'similarity': decision.similarity, 'margin': decision.margin, 'reason': decision.reason,
+                      'test_mode': decision.test_mode, 'mode': decision.mode,
+                      'slot': slot.as_dict() if slot and decision.accepted else None,
+                      'ranking': [{**r, 'label': labels.get(r['object'], r['object'])} for r in decision.ranking],
+                      'elapsed_seconds': recognition.get('elapsed_seconds', 0)}
+            objects.append(result)
+            log_recognition(result)
+            if slot and decision.accepted:
+                slots[slot.id] = slot
+        result = {'status': 'accepted' if slots else 'rejected', 'photo_id': body.photo_id,
+                  'operation_id': operation_id, 'image_size': list(image_size), 'objects': objects,
+                  'slots': [slot.as_dict() for slot in sorted(slots.values(), key=lambda s: s.id)],
+                  'test_mode': any(o['test_mode'] for o in objects), 'mode': 'grounding_dino_qwen',
+                  'reason': 'Devuelve las herramientas en las ubicaciones iluminadas.' if slots else
+                            'No hay herramientas aceptadas para esta estación. Repite la foto.',
+                  'elapsed_seconds': round(time.perf_counter() - started, 3)}
         item['result'] = result
-        log_recognition(result)
-        if decision.accepted and slot:
-            st.begin_guide(slot, test_mode=decision.test_mode)
+        if slots:
+            st.begin_guides(list(slots.values()), operation_id, result['test_mode'])
         return result
 
     @app.post('/api/next')
@@ -239,22 +259,34 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
 
     @app.post('/api/reject')
     async def reject(body: RejectBody):
-        """"No es correcta": apaga la guía y guarda la foto con la etiqueta real para ampliar las referencias.
-
-        Las fotos quedan en data/feedback/<categoría real>/; `python -m kiwi_pi.dataset` las incorpora al ZIP.
-        """
-        station().cancel_guide()
         valid = {s.category for s in cfg.slots} | {OTHER_CATEGORY}
         if body.actual is not None and body.actual not in valid:
             raise HTTPException(400, 'Etiqueta desconocida.')
-        item = state['photos'].items.get(body.photo_id)
-        if item:
-            predicted = (item['result'] or {}).get('category') or 'desconocido'
-            folder = f'feedback/{body.actual}' if body.actual else f'feedback/sin_etiqueta/{predicted}'
-            name = f'{datetime.now():%Y%m%d-%H%M%S}-{body.photo_id}'
-            save_photo(folder, f'{name}.jpg', item['jpeg'])
-            save_photo(folder, f'{name}.json', json.dumps({**(item['result'] or {}), 'actual': body.actual},
-                                                          ensure_ascii=False, indent=2).encode())
+        item = state['photos'].get(body.photo_id)
+        result = item['result']
+        if state.get('active_photo_id') != body.photo_id:
+            raise HTTPException(409, 'La estación está procesando otra foto.')
+        if result is None:  # cancel a pending prediction, without adding dataset entries
+            station().cancel_guide()
+            return {'ok': True}
+        selected = next((o for o in result['objects'] if o['id'] == body.object_id), None)
+        if selected is None:
+            raise HTTPException(404, 'Selecciona un objeto disponible de esta foto.')
+        current_operation = station().operation_id
+        if current_operation is not None and current_operation != result['operation_id']:
+            raise HTTPException(409, 'La estación está procesando otra foto.')
+        station().cancel_guide()
+        if body.actual is None:
+            return {'ok': True}
+        with Image.open(io.BytesIO(item['jpeg'])) as image:
+            crop = image.crop(selected['crop_box']).convert('RGB')
+            buffer = io.BytesIO()
+            crop.save(buffer, 'JPEG', quality=92)
+        folder = f'feedback/{body.actual}'
+        name = f'{datetime.now():%Y%m%d-%H%M%S}-{body.photo_id}-{body.object_id}-{uuid.uuid4().hex[:6]}'
+        save_photo(folder, f'{name}.jpg', buffer.getvalue())
+        save_photo(folder, f'{name}.json', json.dumps({**selected, 'actual': body.actual},
+                                                      ensure_ascii=False, indent=2).encode())
         return {'ok': True}
 
     # ---------- administración (pantalla de la estación) ----------

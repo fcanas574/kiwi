@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import random
+import io
+import math
+from PIL import Image
 import tempfile
 from dataclasses import dataclass, field
 from typing import Any
@@ -128,7 +131,10 @@ class GradioRecognizer(Recognizer):
         with tempfile.NamedTemporaryFile(suffix='.jpg') as tmp:
             tmp.write(jpeg)
             tmp.flush()
-            return self._get_client().predict(handle_file(tmp.name), api_name='/identify')
+            result = self._get_client().predict(handle_file(tmp.name), api_name='/identify')
+            if not isinstance(result, (list, tuple)) or len(result) != 3 or not isinstance(result[2], dict):
+                raise RecognizerError('Gradio no devolvió los resultados multiobjeto. Actualiza el notebook.')
+            return result[2]
 
     async def predict(self, jpeg: bytes) -> dict:
         try:
@@ -156,17 +162,23 @@ class MockRecognizer(Recognizer):
     force: str | None = None
 
     async def predict(self, jpeg: bytes) -> dict:
-        await asyncio.sleep(0.6)
-        categories = [s.category for s in self.cfg.slots] + ['capacitors', 'multimeter_box']
-        top = self.force or random.choice(categories)
-        scores = {c: round(random.uniform(0.30, 0.62), 4) for c in categories}
-        scores[top] = round(random.uniform(0.82, 0.95), 4)
-        ranking = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-        return {
-            'candidate': top, 'recognized': True, 'similarity': ranking[0][1],
-            'margin': ranking[0][1] - ranking[1][1], 'reason': 'Simulación (driver mock).',
-            'mode': 'mock', 'ranking': [{'object': o, 'similarity': s} for o, s in ranking],
-        }
+        await asyncio.sleep(0.1)
+        with Image.open(io.BytesIO(jpeg)) as image:
+            width, height = image.size
+        categories = self.force.split(',') if self.force else ['digital_multimeter', 'servo_motor', 'solder']
+        objects = []
+        for i, category in enumerate(categories[:12], 1):
+            x1 = int((i - 1) * width / len(categories))
+            x2 = max(x1 + 1, int(i * width / len(categories)))
+            box = [x1, 0, x2, height]
+            accepted = category != 'otros'
+            result = {'candidate': category, 'recognized': accepted, 'similarity': .95, 'margin': .75,
+                      'reason': 'Simulación (driver mock).', 'mode': 'mock',
+                      'ranking': [{'object': category, 'similarity': .95}]}
+            objects.append({'id': i, 'box': box, 'crop_box': box, 'category': category,
+                            'recognized': accepted, 'detector_label': category, 'detector_score': .5,
+                            'recognition': result})
+        return {'mode': 'grounding_dino_qwen', 'image_size': [width, height], 'objects': objects}
 
     async def health(self) -> Health:
         return Health(True, 'Simulación', 'mock', True)
@@ -237,3 +249,39 @@ def decide(cfg: Config, api: dict) -> Decision:
         return Decision(True, candidate, similarity, margin, 'Modo prueba: umbrales sin calibrar.',
                         test_mode=True, **common)
     return Decision(False, candidate, similarity, margin, api.get('reason') or 'La API no confirmó el objeto.', **common)
+
+
+def validate_objects(api: dict, image_size: tuple[int, int]) -> list[dict]:
+    """Reject malformed results before lighting LEDs or using crop coordinates."""
+    def fail():
+        raise RecognizerError('La API no devolvió una lista multiobjeto válida. Actualiza el notebook y repite la foto.')
+    if not isinstance(api, dict) or api.get('image_size') != list(image_size):
+        fail()
+    objects = api.get('objects')
+    if not isinstance(objects, list) or len(objects) > 12:
+        fail()
+    seen = set()
+    width, height = image_size
+    for item in objects:
+        if not isinstance(item, dict): fail()
+        id = item.get('id')
+        if type(id) is not int or id < 1 or id in seen: fail()
+        seen.add(id)
+        for name in ('box', 'crop_box'):
+            box = item.get(name)
+            if not isinstance(box, list) or len(box) != 4: fail()
+            if not all(type(v) in (int, float) and math.isfinite(v) for v in box): fail()
+            x1, y1, x2, y2 = box
+            if not (0 <= x1 < x2 <= width and 0 <= y1 < y2 <= height): fail()
+        r = item.get('recognition')
+        if not isinstance(r, dict) or type(item.get('recognized')) is not bool or type(r.get('recognized')) is not bool: fail()
+        if item['recognized'] != r['recognized'] or not isinstance(item.get('category'), str) or item['category'] != r.get('candidate'): fail()
+        for value in (item.get('detector_score'), r.get('similarity'), r.get('margin')):
+            if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1: fail()
+        ranking = r.get('ranking')
+        if not isinstance(ranking, list): fail()
+        for entry in ranking:
+            if not isinstance(entry, dict) or not isinstance(entry.get('object'), str): fail()
+            value = entry.get('similarity')
+            if type(value) not in (int, float) or not math.isfinite(value): fail()
+    return objects
