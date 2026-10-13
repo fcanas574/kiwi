@@ -1,0 +1,15 @@
+# Servidor de la estación (Raspberry Pi OS Bookworm, Python 3.11)
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+httpx>=0.27
+pyyaml>=6.0
+pillow>=10.0
+
+# Hardware: en la Pi, gpiozero y picamera2 vienen con el sistema (apt).
+# El entorno virtual debe crearse con --system-site-packages para verlos.
+# Descomentar según los drivers usados:
+# rpi_ws281x>=5.0          # leds.driver: ws281x
+# pyserial>=3.5            # leds.driver: serial
+# gradio_client>=1.0       # recognizer.driver: gradio
+# opencv-python-headless   # camera.driver: opencv (o apt install python3-opencv)

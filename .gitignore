@@ -11,3 +11,8 @@ venv/
 Colab_*.jpg
 .gradio/
 flagged/
+
+# Estación Raspberry Pi
+pi/config.yaml
+pi/data/
+.pytest_cache/

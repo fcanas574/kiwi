@@ -1,0 +1,97 @@
+# Configuración de la estación Kiwi / ToolLighthouse en la Raspberry Pi 4.
+# Copiar a config.yaml y ajustar. Los drivers "mock" permiten probar todo en una
+# computadora sin cámara, LEDs ni sensores.
+
+server:
+  host: 0.0.0.0          # 0.0.0.0 permite abrir la página desde un celular en la misma red
+  port: 8000
+  # Cambiar el endpoint, probar LEDs o simular sensores solo desde la propia Pi
+  # (navegador del kiosco). true lo permite desde cualquier equipo de la red.
+  allow_remote_admin: false
+
+recognizer:
+  # rest   -> API REST de Colab expuesta con ngrok (sección 6b del notebook): POST /predict
+  # gradio -> enlace gradio.live de la sección 6 (requiere `pip install gradio_client`)
+  # mock   -> respuestas simuladas para desarrollo
+  driver: rest
+  url: https://TU-URL.ngrok-free.app/predict
+  # Clave de la API REST. Mejor usar la variable de entorno KIWI_API_KEY.
+  api_key: ""
+  # Solo para gradio: usuario kiwi y la contraseña de la sección 6 (o KIWI_GRADIO_PASSWORD).
+  gradio_user: kiwi
+  gradio_password: ""
+  timeout_seconds: 30
+  health_interval_seconds: 15
+
+decision:
+  # Umbrales calculados en la Pi sobre las 9 categorías de la estación. Si se dejan
+  # vacíos se usa el campo `recognized` que devuelve la API.
+  min_similarity: null
+  min_margin: null
+  # Modo prueba: acepta el mejor candidato aunque los umbrales no estén calibrados.
+  # Útil el día de integración; desactivar para la demo final.
+  test_mode: false
+
+camera:
+  # none: la foto se toma o se sube desde el teléfono (flujo principal).
+  # auto | picamera2 | opencv: usar una cámara conectada a la Pi.
+  driver: none
+  opencv_index: 0
+  width: 1280
+  height: 960
+  stream_fps: 10
+  rotation: 0            # 0 | 90 | 180 | 270
+
+leds:
+  # mock   -> sin hardware (se ve en el panel de diagnóstico)
+  # gpio   -> un LED (o barra con transistor) por posición, en los pines indicados
+  # ws281x -> tira direccionable WS2812B/NeoPixel en GPIO18 (permite colores)
+  # serial -> ESP32/Arduino por USB con firmware/kiwi_leds/kiwi_leds.ino
+  driver: mock
+  gpio_pins: [5, 6, 13, 19, 26, 12, 16, 20, 21]   # posición 1..9 (BCM)
+  gpio_active_high: true
+  ws281x_pin: 18
+  ws281x_brightness: 0.4
+  ws281x_pixels_per_slot: 8      # cada posición enciende un tramo de la tira
+  serial_port: /dev/ttyUSB0
+  serial_baud: 115200
+  colors:
+    guide: "#006DFF"     # azul del diseño: aquí va la herramienta
+    ok: "#31E083"        # verde: devuelta en su lugar
+    wrong: "#FF3B1F"     # rojo: posición equivocada
+  ok_seconds: 4          # tiempo que se muestra el verde antes de apagar
+
+sensors:
+  # mock -> estados simulados desde el panel de diagnóstico
+  # gpio -> un sensor digital por posición: IR de obstáculo (FC-51/TCRT5000),
+  #         barrera IR, microswitch o reed + imán
+  # none -> sin verificación: el LED se apaga tras guide_timeout_seconds
+  driver: mock
+  gpio_pins: [4, 17, 27, 22, 23, 24, 25, 8, 7]     # posición 1..9 (BCM)
+  pull: up               # up | down | none
+  occupied_when: low     # nivel del pin cuando hay un objeto (los módulos IR dan LOW)
+  debounce_ms: 250
+  poll_ms: 50
+
+guide:
+  guide_timeout_seconds: 120   # si nadie devuelve la herramienta, se apaga la guía
+  auto_reset_seconds: 5        # tras devolverla, la pantalla vuelve al inicio
+
+ui:
+  auto_send: false       # true: enviar la foto a la API sin pasar por "Revisa la foto"
+  save_captures: false   # guardar todas las fotos en data/captures para ampliar el dataset
+
+# Las 9 herramientas del reto. `category` debe coincidir con las etiquetas del notebook.
+# Lista provisional: se dejaron fuera `capacitors` y `multimeter_box`; cambiar según el equipo.
+station:
+  shelf_columns: 3
+  slots:
+    - {id: 1, category: digital_multimeter, label: Multímetro, location: "Estante A · Posición 1"}
+    - {id: 2, category: oscilloscope, label: Osciloscopio, location: "Estante A · Posición 2"}
+    - {id: 3, category: function_generator, label: Generador de funciones, location: "Estante A · Posición 3"}
+    - {id: 4, category: bench_power_supply, label: Fuente de banco, location: "Estante A · Posición 4"}
+    - {id: 5, category: soldering_station, label: Estación de soldadura, location: "Estante A · Posición 5"}
+    - {id: 6, category: solder, label: Cautín, location: "Estante A · Posición 6"}
+    - {id: 7, category: servo_motor, label: Servomotor, location: "Estante A · Posición 7"}
+    - {id: 8, category: variable_capacitor, label: Capacitor variable, location: "Estante A · Posición 8"}
+    - {id: 9, category: power_adapter, label: Adaptador de corriente, location: "Estante A · Posición 9"}

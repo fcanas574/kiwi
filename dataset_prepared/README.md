@@ -7,7 +7,7 @@ Las 44 fotos se inspeccionaron visualmente. Los originales de `Kiwi Dataset` per
 | Categoría | Referencias | Evaluación | Total |
 |---|---:|---:|---:|
 | `soldering_station` | 4 | 0 | 4 |
-| `digital_multimeter` | 5 | 1 | 6 |
+| `digital_multimeter` | 9 | 1 | 10 |
 | `bench_power_supply` | 4 | 0 | 4 |
 | `servo_motor` | 4 | 0 | 4 |
 | `oscilloscope` | 5 | 1 | 6 |
@@ -16,9 +16,19 @@ Las 44 fotos se inspeccionaron visualmente. Los originales de `Kiwi Dataset` per
 | `capacitors` | 2 | 0 | 2 |
 | `power_adapter` | 4 | 0 | 4 |
 | `multimeter_box` | 5 | 0 | 5 |
-| `solder` | 1 | 0 | 1 |
+| `solder` | 2 | 0 | 2 |
+| `otros` | 3 | 0 | 3 |
 
 Las 11 categorías se conservan en la configuración. El reto requiere seleccionar 9; no se quitó ninguna categoría para anticipar esa selección.
+
+## Fotos de prueba añadidas (12/10/2026)
+
+Ocho fotos tomadas con el teléfono durante la primera prueba de la estación se añadieron a `references.zip` (49 fotos):
+- `digital_multimeter_007`–`010`: multímetro INGCO amarillo (frontal, lateral y trasera). Antes se confundía con `multimeter_box` o `bench_power_supply`.
+- `solder_002`: cautín con mango rojo.
+- `otros`: **referencias negativas** (papel toalla, alicate, Arduino Nano). Si el objeto se parece más a `otros`, la estación lo rechaza. Añadir aquí objetos comunes del taller que no deben encender un LED.
+
+Para comprobar la mejora hay que usar fotos **nuevas**: las fotos añadidas ya no sirven como prueba.
 
 ## Etiquetas confirmadas
 

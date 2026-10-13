@@ -12,7 +12,8 @@ CATEGORIES = {
     'power_adapter': 'A rectangular AC DC power adapter with an integrated output cable',
     'multimeter_box': 'A yellow orange cardboard retail box for an AstroAI digital multimeter',
     'solder': 'An electric soldering iron with a handle and pointed metal tip',
+    'otros': 'An everyday object that is not one of the laboratory tools, such as household items, hand tools or bare circuit boards',
 }
 MIN_SIMILARITY = None
 MIN_MARGIN = None
-print('Once categorías configuradas. Ejecutar sección 4 y luego cargar references.zip en sección 5.')
+print('Doce categorías configuradas (otros = referencias negativas). Ejecutar sección 4 y luego cargar references.zip en sección 5.')

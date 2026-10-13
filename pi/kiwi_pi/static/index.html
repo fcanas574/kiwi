@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>ToolLighthouse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="app" id="app" data-screen="capture">
+  <header class="topbar">
+    <button class="brand" id="brand" type="button" aria-label="ToolLighthouse. Mantén pulsado para diagnóstico">
+      <span>ToolLighthouse</span>
+      <svg viewBox="0 0 28 16" aria-hidden="true"><path d="M1 8h26M20 1l7 7-7 7"/></svg>
+    </button>
+    <div class="pill" id="apiPill" data-online="false">
+      <span class="dot"></span><span id="apiText">Conectando…</span>
+    </div>
+  </header>
+  <div class="steps" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <main>
+    <!-- 1 · Captura -->
+    <section class="screen" id="screen-capture" aria-label="Paso 1: tomar la foto">
+      <div class="col">
+        <p class="eyebrow"><span class="bullet"></span>Key Week · Taller SPARK</p>
+        <h1>¿Dónde va esta herramienta?</h1>
+        <p class="lead">Muéstrala a la cámara y el taller te dirá dónde guardarla.</p>
+        <label class="endpoint" for="endpointInput">
+          <span class="eyebrow"><span class="bullet"></span>Endpoint de Colab</span>
+          <input id="endpointInput" type="url" inputmode="url" autocomplete="off" spellcheck="false" readonly>
+          <span class="rule"><i></i></span>
+        </label>
+      </div>
+      <div class="col col-main">
+        <div class="viewer" id="viewer">
+          <img id="streamImg" alt="" hidden>
+          <video id="video" autoplay playsinline muted hidden></video>
+          <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
+            <path d="M14 30l24 30-24 30M106 30l-24 30 24 30M30 10l30 22 30-22M30 110l30-22 30 22"/>
+          </svg>
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+          <span class="viewer-caption" id="viewerCaption">Vista de la cámara</span>
+          <div class="busy" id="captureBusy" hidden><span class="spinner"></span></div>
+        </div>
+        <div class="tiles">
+          <button class="tile tile-purple" id="takeBtn" type="button">
+            <strong>Tomar foto</strong>
+            <span>Con la cámara<br>del dispositivo</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1 1l18 18M19 5v14H5"/></svg>
+          </button>
+          <button class="tile tile-green" id="uploadBtn" type="button">
+            <strong>Subir foto</strong>
+            <span>Desde tu galería<br>o archivos</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1 1l18 18M19 5v14H5"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 · Revisión -->
+    <section class="screen" id="screen-review" aria-label="Paso 2: revisar la foto">
+      <div class="col">
+        <p class="eyebrow eyebrow-split"><span><span class="bullet"></span>Paso 2 de 3</span><span class="muted" id="photoSource">Desde la cámara</span></p>
+        <h1>Revisa la foto</h1>
+        <p class="lead">Que la herramienta se vea completa y nítida.</p>
+        <div class="actions">
+          <button class="btn btn-primary" id="sendBtn" type="button">
+            <span class="label">Enviar a la API</span>
+            <svg viewBox="0 0 28 16" aria-hidden="true"><path d="M1 8h26M20 1l7 7-7 7"/></svg>
+            <span class="spinner"></span>
+          </button>
+          <button class="btn btn-secondary" id="retakeBtn" type="button">Repetir foto</button>
+        </div>
+      </div>
+      <div class="col col-main">
+        <div class="photo"><img id="photoImg" alt="Foto capturada"></div>
+      </div>
+    </section>
+
+    <!-- 3 · Resultado -->
+    <section class="screen" id="screen-result" aria-label="Paso 3: resultado" data-kind="accepted">
+      <div class="col">
+        <p class="eyebrow eyebrow-split"><span><span class="bullet"></span>Resultado</span><span class="chip" id="testChip" hidden>Modo prueba</span></p>
+        <div class="card" id="resultCard">
+          <p class="card-label" id="cardLabel">Herramienta reconocida</p>
+          <p class="card-title" id="cardTitle">—</p>
+          <div class="meter" id="meter">
+            <div class="bar"><i id="meterFill"></i></div>
+            <span id="meterValue">—</span>
+          </div>
+          <p class="card-note" id="cardNote" hidden></p>
+        </div>
+        <div class="where" id="where">
+          <h2 id="locationText"></h2>
+          <p class="status" id="statusText" data-tone=""></p>
+        </div>
+      </div>
+      <div class="col col-main">
+        <div class="map" id="map" role="img" aria-label="Mapa del organizador"></div>
+        <div class="actions">
+          <button class="btn btn-primary" id="nextBtn" type="button">
+            <span class="label" id="nextLabel">Siguiente herramienta</span>
+            <svg viewBox="0 0 28 16" aria-hidden="true"><path d="M1 8h26M20 1l7 7-7 7"/></svg>
+            <span class="spinner"></span>
+          </button>
+          <button class="btn btn-secondary" id="wrongBtn" type="button">No es correcta</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- "No es correcta": la etiqueta real alimenta las referencias del modelo -->
+  <div class="sheet" id="labelSheet" hidden>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="labelSheetTitle">
+      <p class="eyebrow"><span class="bullet"></span>Ayúdanos a mejorar</p>
+      <h2 id="labelSheetTitle">¿Qué era?</h2>
+      <div class="sheet-options" id="labelOptions"></div>
+      <button class="btn btn-secondary btn-small" id="labelCancel" type="button">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Diagnóstico: mantener pulsado el logotipo -->
+  <div class="diag" id="diag" hidden>
+    <div class="diag-head">
+      <h2>Diagnóstico</h2>
+      <button class="btn btn-secondary btn-small" id="diagClose" type="button">Cerrar</button>
+    </div>
+    <dl class="diag-drivers" id="diagDrivers"></dl>
+    <table class="diag-table">
+      <thead><tr><th>#</th><th>Herramienta</th><th>Sensor</th><th>LED</th><th></th></tr></thead>
+      <tbody id="diagSlots"></tbody>
+    </table>
+    <div class="diag-actions">
+      <button class="btn btn-primary btn-small" id="ledTestBtn" type="button">Probar LEDs</button>
+      <button class="btn btn-secondary btn-small" id="ledOffBtn" type="button">Apagar LEDs</button>
+      <label class="diag-force" id="forceWrap" hidden>Resultado simulado
+        <select id="forceSelect"><option value="">Aleatorio</option></select>
+      </label>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*" hidden>
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

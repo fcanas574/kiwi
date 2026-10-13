@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Kiwi kiosco
+Exec=__PI_DIR__/deploy/kiosk.sh
+X-GNOME-Autostart-enabled=true

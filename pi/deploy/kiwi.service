@@ -1,0 +1,17 @@
+[Unit]
+Description=Kiwi · estación de herramientas (cámara, API, LEDs y sensores)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__PI_DIR__
+EnvironmentFile=-__PI_DIR__/.env
+ExecStart=__PI_DIR__/.venv/bin/python -m kiwi_pi
+Restart=on-failure
+RestartSec=3
+# Para leds.driver: ws281x la tira necesita acceso a /dev/mem: cambiar User=root.
+SupplementaryGroups=video gpio dialout
+
+[Install]
+WantedBy=multi-user.target
