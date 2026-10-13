@@ -1,4 +1,4 @@
-"""Prueba experimental: Grounding DINO localiza y Qwen clasifica recortes.
+"""Reconocimiento principal: Grounding DINO localiza y Qwen clasifica recortes.
 
 No sustituye identify ni modifica la API o las luces de la estación.
 """
@@ -42,7 +42,7 @@ def select_detections(detections, size, limit=12, iou_threshold=.6):
     return selected
 
 
-class MultiObjectProbe:
+class MultiObjectRecognizer:
     def __init__(self, classify):
         import torch
         from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
@@ -68,7 +68,7 @@ class MultiObjectProbe:
 
     def identify(self, image, threshold=.25):
         if image is None:
-            return None, [], {'objects': [], 'reason': 'Sube una foto.'}
+            return None, [], {'mode': 'grounding_dino_qwen', 'image_size': None, 'objects': [], 'reason': 'Sube una foto.'}
         image = ImageOps.exif_transpose(image).convert('RGB')
         start = time.perf_counter()
         detections, raw_count = self.detect(image, threshold)
@@ -94,8 +94,12 @@ class MultiObjectProbe:
             objects.append({'id': index, 'box': box, 'crop_box': crop_box,
                             'detector_label': detection['label'], 'detector_score': detection['score'],
                             'category': candidate, 'recognized': accepted, 'recognition': result})
-        return annotated, crops, {'objects': objects, 'raw_detections': raw_count,
+        return annotated, crops, {'mode': 'grounding_dino_qwen', 'image_size': list(image.size), 'objects': objects, 'raw_detections': raw_count,
                                   'detection_seconds': round(detection_seconds, 3),
                                   'elapsed_seconds': round(time.perf_counter() - start, 3),
                                   'limit': 12, 'reason': 'Sin objetos detectados.' if not objects else
-                                  'Prueba experimental: revisar omisiones, duplicados y componentes del mismo equipo.'}
+                                  'Revisa objetos omitidos y componentes del mismo equipo.'}
+
+
+# Alias para reproducir los experimentos CPU históricos.
+MultiObjectProbe = MultiObjectRecognizer

@@ -33,3 +33,23 @@ def test_empty_detection_does_not_call_qwen():
     probe.detect = lambda image, threshold: ([], 0)
     probe.classify = lambda crop: (_ for _ in ()).throw(AssertionError('No crop'))
     assert probe.identify(Image.new('RGB', (60, 60)))[2]['objects'] == []
+
+
+def test_response_has_oriented_size_and_primary_mode():
+    probe = MultiObjectProbe.__new__(MultiObjectProbe)
+    probe.detect = lambda image, threshold: ([], 0)
+    response = probe.identify(Image.new('RGB', (80, 40)))[2]
+    assert response['image_size'] == [80, 40]
+    assert response['mode'] == 'grounding_dino_qwen'
+
+
+def test_none_image_preserves_list_contract():
+    probe = MultiObjectProbe.__new__(MultiObjectProbe)
+    response = probe.identify(None)[2]
+    assert response['image_size'] is None
+    assert response['objects'] == []
+
+
+def test_limit_twelve_recrops():
+    candidates = [{'box': [i*10, 0, i*10+5, 5], 'score': .5, 'label': 'tool'} for i in range(20)]
+    assert len(select_detections(candidates, (300, 30))) == 12

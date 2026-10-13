@@ -21,18 +21,25 @@ def notebook_function(name):
     raise AssertionError(f'Falta la función {name} en el notebook')
 
 
-def test_health_reports_active_vlm():
-    vlm = lambda image: {'mode': 'vlm'}
-    ns = {'identify': vlm, 'identify_vlm': vlm, 'reference_vectors': [], 'names': ['servo_motor'],
-          'MIN_SIMILARITY': None, 'MIN_MARGIN': None,
-          'VLM_MIN_PROBABILITY': .9, 'VLM_MIN_MARGIN': .5}
+def test_health_reports_primary_multiobject_models():
+    ns = {'multi_recognizer': object(), 'vlm_model': object(), 'names': ['servo_motor']}
     exec(notebook_function('health'), ns)
-    assert ns['health']()['mode'] == 'vlm'
+    data = ns['health']()
+    assert data['ok'] is True
+    assert data['mode'] == 'grounding_dino_qwen'
+    assert data['calibrated'] is False
 
 
-def test_gradio_resolves_current_recognizer():
-    ns = {'identify': lambda image: 'embeddings', 'model_lock': threading.Lock()}
+def test_missing_detector_does_not_fall_back_to_single_object():
+    ns = {'model_lock': threading.Lock(), 'identify': lambda image: 'single'}
     exec(notebook_function('identify_current'), ns)
-    assert ns['identify_current'](None) == 'embeddings'
-    ns['identify'] = lambda image: 'vlm'
-    assert ns['identify_current'](None) == 'vlm'
+    import pytest
+    with pytest.raises(RuntimeError, match='DINO'):
+        ns['identify_current'](None)
+
+
+def test_rest_returns_same_list_as_gradio():
+    response = {'objects': [], 'image_size': [20, 10]}
+    ns = {'identify_current': lambda image: ('annotated', [], response)}
+    exec(notebook_function('identify_objects'), ns)
+    assert ns['identify_objects'](None) is response

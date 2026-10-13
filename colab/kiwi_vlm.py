@@ -10,28 +10,33 @@
 # la segunda opción. La opción "ninguna" se devuelve como la categoría `otros`.
 import time
 import torch
-from transformers import AutoModelForImageTextToText, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
 
 VLM_ID = 'Qwen/Qwen3-VL-4B-Instruct'
 VLM_MIN_PROBABILITY = 0.90   # recognized=True solo por encima de esta probabilidad...
 VLM_MIN_MARGIN = 0.50        # ...y con esta ventaja sobre la segunda opción
 # Doble verificación: si la categoría tiene fotos de referencia (sección 5) y EmbeddingGemma elige otra
 # herramienta, no se acepta. Evita LEDs equivocados con fotos ambiguas (p. ej. equipos vistos por detrás).
-VLM_CHECK_WITH_REFERENCES = True
+VLM_CHECK_WITH_REFERENCES = globals().get("VLM_CHECK_WITH_REFERENCES", False)
 OTHER = 'otros'
 
 if 'identify_embeddings' not in globals():
     identify_embeddings = identify   # el reconocimiento por fotos de referencia sigue disponible
 
 if 'vlm_model' not in globals():
-    print('Cargando', VLM_ID, '(la primera vez descarga ~9 GB)...')
-    vlm_processor = AutoProcessor.from_pretrained(
-        VLM_ID, min_pixels=256 * 28 * 28, max_pixels=640 * 28 * 28)  # fotos de ~0,5 MP: rápido y suficiente
-    vlm_model = AutoModelForImageTextToText.from_pretrained(
-        VLM_ID, dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-        device_map='auto', attn_implementation='sdpa')
-    vlm_model.eval()
-    print('VLM cargado. Memoria GPU usada: %.1f GB' % (torch.cuda.memory_allocated() / 1e9))
+    cpu = not torch.cuda.is_available()
+    print('Cargando', VLM_ID, '| CPU NF4' if cpu else '| GPU', flush=True)
+    vlm_processor = AutoProcessor.from_pretrained(VLM_ID,
+        min_pixels=64 * 32 * 32 if cpu else 256 * 28 * 28,
+        max_pixels=128 * 32 * 32 if cpu else 640 * 28 * 28)
+    kwargs = {'dtype': torch.float32 if cpu else torch.float16,
+              'device_map': 'cpu' if cpu else 'auto', 'attn_implementation': 'sdpa'}
+    if cpu:
+        kwargs['quantization_config'] = BitsAndBytesConfig(load_in_4bit=True,
+            bnb_4bit_quant_type='nf4', bnb_4bit_compute_dtype=torch.float32)
+        torch.set_num_threads(2)
+    vlm_model = AutoModelForImageTextToText.from_pretrained(VLM_ID, **kwargs).eval()
+    print('Qwen cargado; memoria de pesos: %.1f GB' % (vlm_model.get_memory_footprint() / 1e9))
 
 # Descripciones para el VLM: rasgos del panel frontal que distinguen equipos parecidos por fuera.
 # Las categorías sin entrada aquí usan su texto de CATEGORIES.
@@ -120,7 +125,4 @@ def identify_vlm(image):
     return result
 
 
-identify = identify_vlm
-_warm = identify_vlm(Image.new('RGB', (448, 448), 'white'))   # primera inferencia (compila kernels)
-print('Reconocimiento activo: VLM', VLM_ID, '| opciones:', ', '.join(f'{l}={n}' for l, n in zip(VLM_LETTERS, VLM_OPTIONS)))
-print('Prueba con imagen en blanco ->', _warm['candidate'], round(_warm['similarity'], 3), f"({_warm['elapsed_seconds']} s)")
+print('Clasificación de recortes preparada:', VLM_ID)
