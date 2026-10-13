@@ -5,6 +5,7 @@ import asyncio
 import random
 import io
 import math
+import json
 from PIL import Image
 import tempfile
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ class Health:
     detail: str = ''
     mode: str | None = None
     calibrated: bool | None = None
+    capabilities: dict[str, bool] | None = None
 
 
 class Recognizer:
@@ -42,6 +44,12 @@ class Recognizer:
         self.section['url'] = url
 
     async def predict(self, jpeg: bytes) -> dict:
+        raise NotImplementedError
+
+    async def detect(self, jpeg: bytes, correlation: dict) -> dict:
+        raise NotImplementedError
+
+    async def classify(self, jpeg: bytes, correlation: dict) -> dict:
         raise NotImplementedError
 
     async def health(self) -> Health:
@@ -66,18 +74,28 @@ class RestRecognizer(Recognizer):
         return headers
 
     def _health_url(self) -> str:
+        return self._base_url() + '/health'
+
+    def _base_url(self) -> str:
         url = self.url.rstrip('/')
-        return (url[: -len('/predict')] if url.endswith('/predict') else url) + '/health'
+        return url[:-len('/predict')] if url.endswith('/predict') else url
+
+    def _operation_url(self, operation: str) -> str:
+        return self._base_url() + f'/{operation}'
 
     def _configured(self) -> bool:
         return self.url.startswith(('http://', 'https://')) and 'TU-URL' not in self.url
 
-    async def predict(self, jpeg: bytes) -> dict:
-        if not self._configured():
-            raise RecognizerError('Configura la URL del endpoint de Colab.')
+    async def _post_json(self, url: str, jpeg: bytes, correlation: dict | None = None) -> dict:
+        kwargs = {'headers': self._headers(),
+                  'files': {'file': ('foto.jpg', jpeg, 'image/jpeg')}}
+        if correlation is not None:
+            try:
+                kwargs['data'] = {'correlation': json.dumps(correlation)}
+            except (TypeError, ValueError) as exc:
+                raise RecognizerError('La correlación debe ser un objeto JSON.') from exc
         try:
-            response = await self.client.post(self.url, headers=self._headers(),
-                                              files={'file': ('foto.jpg', jpeg, 'image/jpeg')})
+            response = await self.client.post(url, **kwargs)
         except httpx.HTTPError as exc:
             raise RecognizerError(f'No se pudo contactar la API: {exc.__class__.__name__}') from exc
         if response.status_code == 401:
@@ -89,6 +107,24 @@ class RestRecognizer(Recognizer):
         except ValueError as exc:
             raise RecognizerError('La API no devolvió JSON. ¿El enlace de ngrok sigue activo?') from exc
 
+    async def predict(self, jpeg: bytes) -> dict:
+        if not self._configured():
+            raise RecognizerError('Configura la URL del endpoint de Colab.')
+        return await self._post_json(self.url, jpeg)
+
+    async def _scan(self, operation: str, jpeg: bytes, correlation: dict) -> dict:
+        if not self._configured():
+            raise RecognizerError('Configura la URL del endpoint de Colab.')
+        if not isinstance(correlation, dict):
+            raise RecognizerError('La correlación debe ser un objeto JSON.')
+        return await self._post_json(self._operation_url(operation), jpeg, correlation)
+
+    async def detect(self, jpeg: bytes, correlation: dict) -> dict:
+        return await self._scan('detect', jpeg, correlation)
+
+    async def classify(self, jpeg: bytes, correlation: dict) -> dict:
+        return await self._scan('classify', jpeg, correlation)
+
     async def health(self) -> Health:
         if not self._configured():
             return Health(False, 'Sin URL configurada')
@@ -99,7 +135,8 @@ class RestRecognizer(Recognizer):
             return Health(False, exc.__class__.__name__)
         if not data.get('ok'):
             return Health(False, f'HTTP {response.status_code}')
-        return Health(True, 'OK', data.get('mode'), data.get('calibrated'))
+        return Health(True, 'OK', data.get('mode'), data.get('calibrated'),
+                      data.get('capabilities'))
 
     async def close(self) -> None:
         await self.client.aclose()
@@ -145,12 +182,19 @@ class GradioRecognizer(Recognizer):
             self._client = None
             raise RecognizerError(f'Error de Gradio: {exc}') from exc
 
+    async def detect(self, jpeg: bytes, correlation: dict) -> dict:
+        raise RecognizerError('El escaneo continuo solo está disponible con REST; Gradio admite el modo manual.')
+
+    async def classify(self, jpeg: bytes, correlation: dict) -> dict:
+        raise RecognizerError('El escaneo continuo solo está disponible con REST; Gradio admite el modo manual.')
+
     async def health(self) -> Health:
         if 'gradio' not in self.url:
             return Health(False, 'Sin URL de Gradio')
         try:
             await asyncio.to_thread(self._get_client)
-            return Health(True, 'OK')
+            return Health(True, 'OK', capabilities={'predict': True, 'detect': False,
+                                                    'classify': False})
         except Exception as exc:
             self._client = None
             return Health(False, str(exc)[:80])
@@ -180,8 +224,44 @@ class MockRecognizer(Recognizer):
                             'recognition': result})
         return {'mode': 'grounding_dino_qwen', 'image_size': [width, height], 'objects': objects}
 
+    async def detect(self, jpeg: bytes, correlation: dict) -> dict:
+        if not isinstance(correlation, dict):
+            raise RecognizerError('La correlación debe ser un objeto JSON.')
+        with Image.open(io.BytesIO(jpeg)) as image:
+            width, height = image.size
+        categories = self.force.split(',') if self.force else ['digital_multimeter', 'servo_motor', 'solder']
+        objects = []
+        for i, category in enumerate(categories[:12], 1):
+            # Fixed twelve-cell layout: appending a target must not move the
+            # existing detections and invalidate their geometric stability.
+            column, row = (i - 1) % 4, (i - 1) // 4
+            x1, y1 = int(column * width / 4), int(row * height / 3)
+            x2 = min(width, max(x1 + 1, int((column + 1) * width / 4)))
+            y2 = min(height, max(y1 + 1, int((row + 1) * height / 3)))
+            objects.append({'id': i, 'box': [x1, y1, x2, y2],
+                            'detector_label': category, 'detector_score': .5})
+        return {'correlation': correlation,
+                'result': {'image_size': [width, height], 'objects': objects,
+                           'raw_detections': len(objects), 'detection_seconds': 0.0}}
+
+    async def classify(self, jpeg: bytes, correlation: dict) -> dict:
+        if not isinstance(correlation, dict):
+            raise RecognizerError('La correlación debe ser un objeto JSON.')
+        categories = self.force.split(',') if self.force else ['digital_multimeter', 'servo_motor', 'solder']
+        try:
+            object_id = int(correlation.get('object_id', correlation.get('id', 1)))
+        except (TypeError, ValueError):
+            object_id = 1
+        category = categories[(max(1, object_id) - 1) % len(categories)]
+        recognized = category != 'otros'
+        result = {'candidate': category, 'recognized': recognized, 'similarity': .95,
+                  'margin': .75, 'reason': 'Simulación (driver mock).', 'mode': 'mock',
+                  'ranking': [{'object': category, 'similarity': .95}]}
+        return {'correlation': correlation, 'result': result}
+
     async def health(self) -> Health:
-        return Health(True, 'Simulación', 'mock', True)
+        return Health(True, 'Simulación', 'mock', True,
+                      {'predict': True, 'detect': True, 'classify': True})
 
 
 def make_recognizer(cfg: Config) -> Recognizer:
@@ -291,3 +371,88 @@ def validate_objects(api: dict, image_size: tuple[int, int]) -> list[dict]:
             value = entry.get('similarity')
             if type(value) not in (int, float) or not math.isfinite(value): fail()
     return objects
+
+
+def _split_result(payload: dict) -> dict:
+    if isinstance(payload, dict) and isinstance(payload.get('result'), dict):
+        return payload['result']
+    return payload
+
+
+def validate_detections(payload: dict, image_size: tuple[int, int]) -> list[dict]:
+    """Validate DINO boxes before the caller uses them to crop the source frame."""
+    def fail():
+        raise RecognizerError('La API no devolvió detecciones válidas. Repite la captura.')
+
+    payload = _split_result(payload)
+    if not isinstance(payload, dict) or payload.get('image_size') != list(image_size):
+        fail()
+    objects = payload.get('objects')
+    if not isinstance(objects, list) or len(objects) > 12:
+        fail()
+    width, height = image_size
+    seen = set()
+    for item in objects:
+        if not isinstance(item, dict):
+            fail()
+        object_id = item.get('id')
+        if type(object_id) is not int or object_id < 1 or object_id in seen:
+            fail()
+        seen.add(object_id)
+        box = item.get('box')
+        if not isinstance(box, list) or len(box) != 4 or not all(type(v) is int for v in box):
+            fail()
+        x1, y1, x2, y2 = box
+        if not (0 <= x1 < x2 <= width and 0 <= y1 < y2 <= height):
+            fail()
+        if not isinstance(item.get('detector_label'), str):
+            fail()
+        score = item.get('detector_score')
+        if type(score) not in (int, float) or not math.isfinite(score) or not 0 <= score <= 1:
+            fail()
+    raw_count = payload.get('raw_detections')
+    elapsed = payload.get('detection_seconds')
+    if type(raw_count) is not int or raw_count < len(objects):
+        fail()
+    if type(elapsed) not in (int, float) or not math.isfinite(elapsed) or elapsed < 0:
+        fail()
+    return objects
+
+
+def validate_classification(payload: dict) -> dict:
+    """Reject inconsistent Qwen results before a scan may act on them."""
+    def fail():
+        raise RecognizerError('La API no devolvió una clasificación válida. Repite la captura.')
+
+    result = _split_result(payload)
+    if not isinstance(result, dict) or type(result.get('recognized')) is not bool:
+        fail()
+    candidate = result.get('candidate')
+    if candidate is not None and (not isinstance(candidate, str) or not candidate):
+        fail()
+    recognized = result['recognized']
+    if recognized and candidate is None:
+        fail()
+    if not isinstance(result.get('reason'), str):
+        fail()
+    ranking = result.get('ranking')
+    if not isinstance(ranking, list):
+        fail()
+    for entry in ranking:
+        if not isinstance(entry, dict) or not isinstance(entry.get('object'), str):
+            fail()
+        score = entry.get('similarity')
+        if type(score) not in (int, float) or not math.isfinite(score) or not 0 <= score <= 1:
+            fail()
+    similarity = result.get('similarity')
+    margin = result.get('margin')
+    for value in (similarity, margin):
+        if value is not None and (type(value) not in (int, float)
+                                  or not math.isfinite(value) or not 0 <= value <= 1):
+            fail()
+    if candidate is not None:
+        if similarity is None or margin is None or not ranking or ranking[0]['object'] != candidate:
+            fail()
+    elif recognized or similarity is not None or margin is not None or ranking:
+        fail()
+    return result

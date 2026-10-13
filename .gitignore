@@ -16,3 +16,15 @@ flagged/
 pi/config.yaml
 pi/data/
 .pytest_cache/
+
+# Material local generado para HTTPS de la cámara; nunca versionar claves.
+pi/local-https/
+**/ca.key
+**/server.key
+**/ca.crt
+**/ca.cer
+**/server.crt
+**/phone-camera-qr.png
+**/server-config.yaml
+**/ca.srl
+**/server.csr

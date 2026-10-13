@@ -97,10 +97,12 @@ def test_no_sensor_does_not_claim_confirmation(cfg):
 
 
 @pytest.mark.parametrize('remove_target', [True, False])
-def test_completion_waits_for_entire_sensor_sample(cfg, remove_target):
+@pytest.mark.parametrize('continuous', [False, True])
+def test_completion_waits_for_entire_sensor_sample(cfg, remove_target, continuous):
     async def case(st):
         st.sensors.debounce = 0
-        st.begin_guides([cfg.slot_by_id(1), cfg.slot_by_id(7)], 'batch')
+        start = st.add_guides if continuous else st.begin_guides
+        start([cfg.slot_by_id(1), cfg.slot_by_id(7)], 'batch')
         st.simulate_sensor(7, True)
         await st.sensors.tick(); await st.sensors.tick()
         assert st.confirmed == {7}

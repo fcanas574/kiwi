@@ -66,7 +66,11 @@ class Station:
         self.recognition_version = 0
         self.started_at = 0.0
         self.test_mode = False
+        self.continuous = False
         self.target_was_occupied = False
+        self._guide_cycle = 0
+        # Advances for replacements/explicit cancellations, but not natural completion.
+        self.operation_revision = 0
         self._timer: asyncio.Task | None = None
         self._tasks: list[asyncio.Task] = []
         self._notify_scheduled = False
@@ -117,7 +121,7 @@ class Station:
     def snapshot(self) -> dict[str, Any]:
         leds = self.leds.snapshot()
         remaining = None
-        if self.phase in ('guiding', 'wrong_slot'):
+        if self.phase in ('guiding', 'wrong_slot') and not self.continuous:
             remaining = max(0, round(self.guide_timeout - (time.monotonic() - self.started_at)))
         return {
             'api': {'online': self.health.online, 'detail': self.health.detail, 'mode': self.health.mode,
@@ -132,17 +136,22 @@ class Station:
                       'blocked': sorted(self.blocked), 'wrong_slots': sorted(self.wrong_slots),
                       'phase': self.phase, 'target': self.target.as_dict() if self.target else None,
                       'wrong': self.wrong, 'test_mode': self.test_mode, 'remaining': remaining,
-                      'verify': self.sensors.enabled, 'target_was_occupied': self.target_was_occupied},
+                      'verify': self.sensors.enabled, 'target_was_occupied': self.target_was_occupied,
+                      'continuous': self.continuous},
         }
 
     # ---------- guía ----------
     def _set_timer(self, delay: float, callback) -> None:
         if self._timer:
             self._timer.cancel()
+        cycle = self._guide_cycle
 
         async def run():
             await asyncio.sleep(delay)
-            self._timer = None
+            if cycle != self._guide_cycle:
+                return
+            if self._timer is asyncio.current_task():
+                self._timer = None
             callback()
         self._timer = asyncio.create_task(run())
 
@@ -160,6 +169,7 @@ class Station:
         self.confirmed.clear()
         self.blocked = {slot for slot in self.targets if self.sensors.state.get(slot) is True}
         self.target = next(iter(self.targets.values())) if len(self.targets) == 1 else None
+        self.continuous = False
         self.target_was_occupied = bool(self.blocked)
         self.test_mode = test_mode
         self.phase = 'guiding'
@@ -169,7 +179,59 @@ class Station:
         self._set_timer(self.guide_timeout, self._on_timeout)
         self.notify()
 
-    def cancel_guide(self) -> None:
+    def add_guides(self, slots: list[Slot], operation_id: str, test_mode: bool = False) -> None:
+        """Start a continuous guide cycle or accumulate targets in the matching cycle."""
+        incoming = {slot.id: slot for slot in slots}
+        if not incoming:
+            return
+
+        if not (self.continuous and self.operation_id == operation_id):
+            self.cancel_guide()
+            self.targets = incoming
+            self.pending = set(incoming)
+            self.confirmed.clear()
+            self.blocked = {slot_id for slot_id in incoming if self.sensors.state.get(slot_id) is True}
+            self.wrong_slots.clear()
+            self.wrong = None
+            self.operation_id = operation_id
+            self.target = next(iter(incoming.values())) if len(incoming) == 1 else None
+            self.continuous = True
+            self.target_was_occupied = bool(self.blocked)
+            self.test_mode = test_mode
+            self.phase = 'guiding'
+            self.started_at = time.monotonic()
+            for slot_id in incoming:
+                self.leds.set(slot_id, 'guide')
+            self.notify()
+            return
+
+        additions = {slot_id: slot for slot_id, slot in incoming.items() if slot_id not in self.targets}
+        if not additions:
+            return
+
+        # A completed cycle may be showing green while its reset timer runs.
+        # New work keeps the existing progress and cancels only that reset.
+        if self._timer:
+            self._timer.cancel()
+            self._timer = None
+
+        for slot_id, slot in additions.items():
+            self.targets[slot_id] = slot
+            self.pending.add(slot_id)
+            if self.sensors.state.get(slot_id) is True:
+                self.blocked.add(slot_id)
+            # A slot that was wrong before becoming a destination is now
+            # governed by the target's clear-then-return rule.
+            self.wrong_slots.discard(slot_id)
+            self.leds.set(slot_id, 'guide')
+
+        self.target = next(iter(self.targets.values())) if len(self.targets) == 1 else None
+        self._update_progress()
+
+    def cancel_guide(self, *, natural_completion: bool = False) -> None:
+        if not natural_completion:
+            self.operation_revision += 1
+        self._guide_cycle += 1
         self.recognition_version += 1
         if self._timer:
             self._timer.cancel()
@@ -182,6 +244,7 @@ class Station:
         self.blocked.clear()
         self.operation_id = None
         self.target = None
+        self.continuous = False
         self.target_was_occupied = False
         self.wrong = None
         self.wrong_slots.clear()
@@ -189,7 +252,7 @@ class Station:
         self.notify()
 
     def _on_timeout(self) -> None:
-        if self.phase in ('guiding', 'wrong_slot'):
+        if not self.continuous and self.phase in ('guiding', 'wrong_slot'):
             self.leds.all_off()
             self.phase = 'timeout'
             self.notify()
@@ -199,7 +262,8 @@ class Station:
         self.target_was_occupied = bool(self.blocked)
         if not self.pending and not self.wrong_slots and not self.sensors.processing_batch:
             self.phase = 'returned'
-            self._set_timer(max(self.ok_seconds, self.auto_reset), self.cancel_guide)
+            self._set_timer(max(self.ok_seconds, self.auto_reset),
+                            lambda: self.cancel_guide(natural_completion=True))
         else:
             self.phase = 'wrong_slot' if self.wrong_slots else 'guiding'
         self.notify()

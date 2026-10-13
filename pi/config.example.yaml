@@ -5,6 +5,12 @@
 server:
   host: 0.0.0.0          # 0.0.0.0 permite abrir la página desde un celular en la misma red
   port: 8000
+  # Vacíos: HTTP para desarrollo. Para HTTPS, configura ambos con los archivos del script.
+  tls_certfile: ""
+  tls_keyfile: ""
+  # HTTPS usa la IP reservada que está en el SAN del certificado, no localhost.
+  # El kiosco conserva esa URL y conecta por loopback para administrar localmente.
+  public_url: ""
   # Cambiar el endpoint, probar LEDs o simular sensores solo desde la propia Pi
   # (navegador del kiosco). true lo permite desde cualquier equipo de la red.
   allow_remote_admin: false
@@ -31,6 +37,24 @@ decision:
   # Modo prueba: acepta el mejor candidato aunque los umbrales no estén calibrados.
   # Útil el día de integración; desactivar para la demo final.
   test_mode: false
+
+scan:
+  # Emparejamiento del teléfono: configurar KIWI_SCAN_PAIRING_KEY por entorno.
+  # Es distinto de KIWI_API_KEY y nunca se entrega al navegador.
+  max_fps: 1
+  max_side: 960
+  association_iou: 0.3
+  ambiguity_delta: 0.1
+  stable_samples: 3
+  stable_seconds: 1
+  stable_iou: 0.6
+  area_tolerance: 0.15
+  center_tolerance: 0.02
+  missing_samples: 3
+  max_gap_seconds: 10
+  retry_seconds: 5
+  retry_backoff_seconds: [1, 2, 4, 8, 15]
+  rearm_samples: 3
 
 camera:
   # none: la foto se toma o se sube desde el teléfono (flujo principal).

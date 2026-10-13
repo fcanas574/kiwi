@@ -4,14 +4,14 @@ Interfaz del diseño de Figma (**Captura → Revisión → Resultado**) servida 
 
 ```mermaid
 flowchart LR
-    T[Teléfono<br>toma o sube la foto] -- Wi-Fi --> S[Servidor kiwi_pi<br>FastAPI en la Pi]
-    U[Pantalla táctil<br>de la Pi] -- HTTP / SSE --> S
+    T[Teléfono<br>toma o sube la foto] -- HTTPS en Wi-Fi --> S[Servidor kiwi_pi<br>FastAPI en la Pi]
+    U[Pantalla táctil<br>de la Pi] -- HTTP(S) / SSE --> S
     S -- POST /predict --> A[Colab<br>Grounding DINO +<br>Qwen3-VL-4B<br>ngrok]
     S --> L[LEDs por posición<br>GPIO · WS2812 · ESP32]
     P[Sensores de presencia<br>por posición] --> S
 ```
 
-1. **Reconocer**: el teléfono abre `http://<pi>.local:8000`, toma o sube la foto y la Pi la recibe. (Opcional: `camera.driver: auto` para usar una cámara conectada a la Pi.)
+1. **Reconocer**: el teléfono abre `https://<IP-reservada>:8000`, toma o sube la foto y la Pi la recibe. Antes se instala y confía la CA local siguiendo [la guía HTTPS del teléfono](../docs/local-phone-setup.md). (Opcional: `camera.driver: auto` para usar una cámara conectada a la Pi.)
 2. **Procesar**: Colab devuelve `objects` e `image_size`; la Pi evalúa cada recorte y busca todas las ubicaciones aceptadas en `config.yaml`.
 3. **Comunicar**: la Pi controla los LEDs por GPIO, tira WS2812 o un microcontrolador por USB.
 4. **Señalizar y verificar**: LED azul en cada ubicación pendiente. Cada sensor confirma su ubicación en verde; las demás siguen azules. Solo termina al confirmar todas y retirar objetos de ubicaciones equivocadas.
@@ -55,12 +55,12 @@ El mismo código corre en una laptop y en la Pi; entre fases solo cambian los dr
    ```bash
    KIWI_API_KEY='la-misma-clave-de-colab' .venv/bin/python -m kiwi_pi --sim-hardware
    ```
-4. Con el teléfono en la **misma red Wi-Fi**, abrir `http://<IP-de-la-laptop>:8000` (en Mac: `ipconfig getifaddr en0`; macOS puede pedir permitir conexiones entrantes a Python). Tomar o subir fotos con varias herramientas juntas y objetos ajenos.
+4. Con el teléfono en la **misma red Wi-Fi**, abrir `http://<IP-de-la-laptop>:8000` (en Mac: `ipconfig getifaddr en0`; macOS puede pedir permitir conexiones entrantes a Python) y subir fotos con varias herramientas juntas y objetos ajenos. Para probar la cámara del navegador desde el teléfono, prepara HTTPS local en la Pi siguiendo la guía de arriba.
 5. En el navegador de la laptop, `http://localhost:8000/?diag` muestra los LEDs que se encenderían y permite simular sensores (colocar en la posición correcta o en otra).
 
 En esta fase conviene registrar objetos omitidos, duplicados, confusiones y tiempos. **Corregir** en cada objeto guarda su recorte, no la foto completa, para ampliar las referencias.
 
-**Fase 2 — en la Raspberry Pi.** Instalar con `deploy/install.sh` (abajo), copiar los mismos valores de `recognizer` y `decision` al `config.yaml` de la Pi, y cambiar `leds.driver` y `sensors.driver` a `gpio` (o al hardware elegido) cuando estén conectados. El teléfono abre `http://<nombre-de-la-pi>.local:8000`. Se puede pasar por partes: primero solo LEDs reales con `sensors.driver: mock`, luego los sensores.
+**Fase 2 — en la Raspberry Pi.** Instalar con `deploy/install.sh` (abajo), copiar los mismos valores de `recognizer` y `decision` al `config.yaml` de la Pi, reservar una IP para ella en el router y seguir [la guía HTTPS del teléfono](../docs/local-phone-setup.md). El kiosco y el teléfono usan `server.public_url` con esa IP. Se puede pasar por partes: primero solo LEDs reales con `sensors.driver: mock`, luego los sensores.
 
 ## Instalar en la Raspberry Pi 4
 
@@ -70,7 +70,7 @@ Requisitos: Raspberry Pi OS Bookworm de 64 bits con escritorio, pantalla táctil
 git clone https://github.com/fcanas574/kiwi.git ~/kiwi && cd ~/kiwi/pi && bash deploy/install.sh
 ```
 
-El script instala dependencias, crea `config.yaml` y `.env`, registra el servicio `kiwi` y abre Chromium en modo kiosco al iniciar sesión. Después:
+El script instala dependencias, crea `config.yaml` y `.env`, registra el servicio `kiwi` y abre Chromium en modo kiosco al iniciar sesión. La configuración inicial conserva HTTP para desarrollo. Para la cámara del teléfono, reserva una IP y prepara HTTPS con [la guía HTTPS del teléfono](../docs/local-phone-setup.md). Después:
 
 1. En Colab, ejecutar las secciones 1–5, **5b–5c** (Qwen y DINO) y la **6b** del notebook. Copiar la URL `…ngrok-free.app/predict`.
 2. Poner la clave en `~/kiwi/pi/.env` (`KIWI_API_KEY=…`, la misma del secreto de Colab) y `sudo systemctl restart kiwi`.
@@ -78,6 +78,25 @@ El script instala dependencias, crea `config.yaml` y `.env`, registra el servici
 4. Ajustar en `config.yaml` las 9 herramientas, sus posiciones y los drivers de LEDs y sensores. Reiniciar con `sudo systemctl restart kiwi`.
 
 La pantalla se adapta a vertical (diseño de Figma, 390×844) y horizontal (800×480). Para la pantalla oficial en vertical, rotarla en *Preferencias → Configuración de pantalla*. El teclado en pantalla de Raspberry Pi OS (*squeekboard*) aparece al tocar el campo del endpoint.
+
+## Escaneo continuo desde el teléfono
+
+El teléfono dedicado y la Raspberry deben usar la misma Wi‑Fi. Reserva la IP de la Pi y completa [la preparación HTTPS local](../docs/local-phone-setup.md), incluida la confianza de la CA en el teléfono. Si cambias de teléfono, instala y confía la CA en el nuevo dispositivo antes de abrir Kiwi; cada navegador necesita esa preparación para dar acceso a la cámara.
+
+En `~/kiwi/pi/.env`, configura la clave de Colab y un código de emparejamiento distinto:
+
+```dotenv
+KIWI_API_KEY=la-misma-clave-del-secreto-de-Colab
+KIWI_SCAN_PAIRING_KEY=un-codigo-distinto-para-el-telefono
+```
+
+Reinicia `kiwi`, abre `https://<IP-reservada>:8000` en el teléfono y escribe el código en **Emparejar este teléfono**. La página no recibe `KIWI_API_KEY`. Pulsa **Iniciar escaneo** para activar la cámara trasera y enviar cuadros recientes a la Pi; el teléfono debe permanecer en primer plano. **Pausar escaneo** conserva las devoluciones. **Cancelar devoluciones** pausa el escaneo y borra el ciclo de guía. Al recuperar Wi‑Fi, vuelve a abrir o emparejar la página si lo solicita y pulsa **Iniciar escaneo**; la Raspberry conserva los destinos confirmados y pendientes durante la reconexión mientras el servicio siga activo.
+
+Una clasificación Qwen queda provisional hasta una detección DINO posterior compatible. Solo una categoría confirmada enciende su ubicación. Después de confirmarla, la categoría se suprime hasta tres detecciones válidas de ausencia; errores o pausas no cuentan como ausencia. Una falla de Colab conserva la guía y usa esperas de reintento limitadas. Si Colab reinicia y cambia la URL de ngrok, ejecuta la sección 6b del notebook y actualiza **Endpoint de Colab** desde la pantalla de la Pi.
+
+El escaneo solicita un cuadro por segundo como máximo, con lado mayor de 960 px y hasta 12 detecciones. La vista previa pide 15–30 FPS, pero esa cadencia no está medida en la Raspberry. DINO y Qwen siguen en Colab; no se instalan en la Pi. Para una sesión CPU lenta puedes aumentar `scan.max_gap_seconds` y mantener `recognizer.timeout_seconds` amplio; registra las medidas reales antes de ajustar y no asumas que habrá respuesta en tiempo real.
+
+El modo manual existente sigue disponible para tomar o subir una foto y reconocerla una vez. Gradio sirve para ese flujo manual; el escaneo continuo necesita REST de Colab (`/detect` y `/classify`).
 
 ## Conexiones
 

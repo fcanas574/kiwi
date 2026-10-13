@@ -26,6 +26,16 @@ flowchart LR
 
 **Límite del hardware:** un sensor de presencia verifica que una ubicación se ocupó, no la identidad ni la cantidad de herramientas depositadas. Varios objetos de una categoría comparten una ubicación y un LED. Una posición que ya estaba ocupada debe liberarse antes de contar una nueva devolución. Sin sensores, el sistema guía pero no declara una devolución verificada.
 
+## Escaneo continuo desde el celular
+
+Para el stand, abre la página de Kiwi desde el celular dedicado y la misma red Wi‑Fi que la Raspberry. Configura el endpoint REST de Colab, `KIWI_API_KEY` y un código diferente en `KIWI_SCAN_PAIRING_KEY`; prepara la IP reservada y el certificado HTTPS siguiendo [la guía local para el teléfono](docs/local-phone-setup.md). Cada teléfono necesita confiar en esa CA antes de que el navegador pueda usar su cámara. No pongas ninguna clave en el QR ni en la URL.
+
+En la página, empareja el teléfono una vez y pulsa **Iniciar escaneo**. **Pausar escaneo** conserva las guías; **Cancelar devoluciones** pausa la captura y cancela ese ciclo. Si la página pierde la conexión, vuelve a abrirla, empareja de nuevo si lo solicita y pulsa **Iniciar escaneo** para continuar con una generación nueva. Al cambiar de teléfono, prepara primero su confianza HTTPS; el teléfono anterior debe pausar o liberar la sesión.
+
+Una categoría confirmada permanece suprimida mientras siga visible. Se rearma tras tres detecciones válidas sin esa categoría; una pausa, un error de Colab o cuadros que no llegaron no cuentan como ausencia. La captura solicita como máximo un cuadro por segundo y limita el lado mayor a 960 píxeles; la frecuencia efectiva depende del navegador, la red y Colab. Para probar en CPU lenta, deja un `recognizer.timeout_seconds` amplio y ajusta `scan.max_gap_seconds` solo después de medir; esto no implica que el escaneo sea en tiempo real.
+
+El flujo manual de **Tomar foto**, **Subir foto** y reconocimiento individual sigue disponible. El escaneo continuo requiere el endpoint REST de Colab (`/detect` y `/classify`); Gradio conserva el modo manual.
+
 El flujo principal siempre es DINO → Qwen. EmbeddingGemma 2 puede añadirse como verificación por recorte mediante `VLM_CHECK_WITH_REFERENCES=True`; queda desactivado por defecto.
 
 ## Preparar Colab

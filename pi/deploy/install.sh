@@ -7,10 +7,10 @@ PI_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 USER_NAME="$(id -un)"
 cd "$PI_DIR"
 
-echo "==> Paquetes del sistema (cámara, GPIO, navegador del kiosco)"
+echo "==> Paquetes del sistema (cámara, GPIO, navegador, HTTPS local y kiosco)"
 sudo apt-get update
-sudo apt-get install -y python3-venv python3-picamera2 python3-gpiozero python3-lgpio chromium-browser unclutter || \
-sudo apt-get install -y python3-venv python3-picamera2 python3-gpiozero python3-lgpio chromium unclutter
+sudo apt-get install -y python3-venv python3-picamera2 python3-gpiozero python3-lgpio chromium-browser unclutter openssl qrencode libnss3-tools || \
+sudo apt-get install -y python3-venv python3-picamera2 python3-gpiozero python3-lgpio chromium unclutter openssl qrencode libnss3-tools
 
 echo "==> Entorno virtual (con acceso a picamera2 y gpiozero del sistema)"
 python3 -m venv --system-site-packages .venv
@@ -42,5 +42,6 @@ chmod +x deploy/kiosk.sh
 
 echo
 echo "Listo. Estado del servidor: sudo systemctl status kiwi"
-echo "Página local: http://localhost:8000  ·  desde el celular: http://$(hostname).local:8000"
+echo "Página local de desarrollo: http://localhost:8000"
+echo "Para HTTPS local del teléfono, sigue docs/local-phone-setup.md."
 echo "Reinicia la Pi para abrir el kiosco automáticamente."
