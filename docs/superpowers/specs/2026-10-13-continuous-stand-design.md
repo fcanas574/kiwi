@@ -1,6 +1,6 @@
 # Kiwi: escaneo continuo desde un celular en un stand
 
-Fecha: 13 de octubre de 2026. Estado: diseño conversacional acordado; especificación escrita pendiente de revisión del usuario.
+Fecha: 13 de octubre de 2026. Estado: especificación escrita aprobada por el usuario; implementación pendiente de revisión del plan y selección del método de ejecución.
 
 ## Propósito y criterios de éxito
 
