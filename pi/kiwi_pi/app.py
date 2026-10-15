@@ -24,6 +24,7 @@ from .recognizer import RecognizerError, decide, make_recognizer, validate_objec
 from .scan import ScanCoordinator
 from .scan_api import register_scan_routes
 from .station import Station
+from .webcam import WebcamBridge, register_webcam_routes
 
 STATIC = Path(__file__).parent / 'static'
 MAX_UPLOAD = 15 * 1024 * 1024
@@ -83,10 +84,14 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
         recognizer = make_recognizer(cfg)
         station = Station(cfg, recognizer, camera_name=cam.name)
         scan = ScanCoordinator(station, recognizer, cfg, time.monotonic)
+        webcam = WebcamBridge(scan)
         await station.start()
-        state.update(camera=cam, station=station, scan=scan, photos=PhotoStore())
+        state.update(camera=cam, station=station, scan=scan, webcam=webcam, photos=PhotoStore())
         app.state.scan = scan
+        app.state.webcam = webcam
+        webcam.run()
         yield
+        await webcam.close()
         await scan.close()
         await station.stop()
         cam.stop()
@@ -100,13 +105,16 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
         return state['scan']
 
     def live_snapshot() -> dict:
-        return {**station().snapshot(), 'scan': scan().snapshot()}
+        return {**station().snapshot(), 'scan': scan().snapshot(), 'webcam': state['webcam'].snapshot(),
+                'scan_stable_samples': int(cfg.section('scan').get('stable_samples', 3)),
+                'continuous_led_seconds': station().continuous_led_seconds,
+                'desktop_exit_enabled': bool(cfg.section('server').get('enable_desktop_exit'))}
 
     def require_no_continuous_scan() -> None:
         if scan().snapshot()['capture_state'] == 'running' or station().continuous:
             raise HTTPException(409, 'La estación está usando una guía de escaneo continuo.')
 
-    register_scan_routes(app, lambda: state['scan'], cfg)
+    paired_owner = register_scan_routes(app, lambda: state['scan'], cfg)
 
     def is_admin(request: Request) -> bool:
         host = request.client.host if request.client else ''
@@ -115,6 +123,31 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
     def require_admin(request: Request) -> None:
         if not is_admin(request):
             raise HTTPException(403, 'Disponible solo desde la pantalla de la estación.')
+
+    register_webcam_routes(app, lambda: state['webcam'], paired_owner, require_admin)
+
+    @app.post('/api/station/desktop')
+    async def return_to_desktop(request: Request):
+        require_admin(request)
+        if not cfg.section('server').get('enable_desktop_exit'):
+            raise HTTPException(404, 'Esta instalación no tiene salida al escritorio configurada.')
+        state['webcam'].finish()
+        try:
+            process = await asyncio.create_subprocess_exec(
+                '/usr/bin/systemctl', '--user', 'stop', 'kiwi-kiosk.service',
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
+            await asyncio.wait_for(process.communicate(), timeout=10)
+            if process.returncode != 0:
+                raise RuntimeError('kiosk stop failed')
+        except Exception as exc:
+            raise HTTPException(503, 'No se pudo abrir el escritorio. Usa Alt+F4 para cerrar la pantalla.') from exc
+        return {'ok': True}
+
+    @app.get('/api/station/connection')
+    async def connection_info(request: Request):
+        require_admin(request)
+        return {'url': cfg.section('server').get('public_url', '').rstrip('/') + '/camera',
+                'code': cfg.scan_pairing_key}
 
     def save_photo(folder: str, name: str, jpeg: bytes) -> Path:
         path = cfg.data_dir / folder / name
@@ -366,8 +399,23 @@ def create_app(cfg: Config | None = None, camera: Camera | None = None) -> FastA
         return {'force': recognizer.force}
 
     @app.get('/')
-    async def index():
-        return FileResponse(STATIC / 'index.html', headers={'Cache-Control': 'no-cache'})
+    async def index(request: Request):
+        page = 'station.html' if is_admin(request) else 'phone.html'
+        return FileResponse(STATIC / page, headers={'Cache-Control': 'no-store'})
+
+    @app.get('/camera')
+    async def phone_page():
+        return FileResponse(STATIC / 'phone.html', headers={'Cache-Control': 'no-store'})
+
+    @app.get('/station')
+    async def station_page(request: Request):
+        require_admin(request)
+        return FileResponse(STATIC / 'station.html', headers={'Cache-Control': 'no-store'})
+
+    @app.get('/legacy')
+    async def legacy_page(request: Request):
+        require_admin(request)
+        return FileResponse(STATIC / 'index.html', headers={'Cache-Control': 'no-store'})
 
     app.mount('/static', StaticFiles(directory=STATIC), name='static')
     return app

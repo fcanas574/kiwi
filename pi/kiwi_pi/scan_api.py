@@ -43,7 +43,7 @@ class CorrectionCancelBody(BaseModel):
     correction_id: str
 
 
-def register_scan_routes(app: FastAPI, get_scan: Callable[[], ScanCoordinator], cfg: Config) -> None:
+def register_scan_routes(app: FastAPI, get_scan: Callable[[], ScanCoordinator], cfg: Config) -> Callable:
     """Install scan routes and keep pairing identities private to this app instance."""
     paired_owners: OrderedDict[str, tuple[str, float]] = OrderedDict()
     correction_owners: dict[str, str] = {}
@@ -206,3 +206,5 @@ def register_scan_routes(app: FastAPI, get_scan: Callable[[], ScanCoordinator], 
             raise translate_scan_error(exc) from exc
         correction_owners.pop(body.correction_id, None)
         return {'ok': True}
+
+    return paired_owner

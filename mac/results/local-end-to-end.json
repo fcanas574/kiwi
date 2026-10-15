@@ -1,0 +1,2112 @@
+{
+  "field_validation": false,
+  "sample": "artificial three-photo montage",
+  "runs": [
+    {
+      "run": 1,
+      "seconds_to_all_three": 4.133,
+      "all_three_confirmed": true,
+      "unexpected_slots": [],
+      "frames": [
+        {
+          "sequence": 1,
+          "elapsed": 0.374,
+          "pending_slots": [],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            }
+          ],
+          "error": null
+        },
+        {
+          "sequence": 2,
+          "elapsed": 3.724,
+          "pending_slots": [],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            }
+          ],
+          "error": null
+        },
+        {
+          "sequence": 3,
+          "elapsed": 4.133,
+          "pending_slots": [
+            1,
+            6,
+            7
+          ],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": "digital_multimeter",
+              "recognition": {
+                "candidate": "digital_multimeter",
+                "recognized": true,
+                "similarity": 1.0,
+                "margin": 0.999999999721053,
+                "location_id": 1,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 1.0
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 2.789469488728713e-10
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 6.224152443445874e-11
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 1.573710259328287e-11
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.3887952420021943e-11
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.0815932351138091e-11
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 1.0815932351138091e-11
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 3.978968196594046e-12
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 1.8795284339317986e-12
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 1.0060395442060277e-12
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 4.193792394521084e-13
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 3.2661327527098993e-13
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.152
+              }
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": "solder",
+              "recognition": {
+                "candidate": "solder",
+                "recognized": true,
+                "similarity": 1.0,
+                "margin": 0.9999999999948909,
+                "location_id": 6,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "solder",
+                    "similarity": 1.0
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 5.1090902342121325e-12
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 1.7482356166019508e-13
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 7.287723078003641e-14
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 5.0087829662950195e-14
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 4.4202265274666946e-14
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 3.900838460297977e-14
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.4424801334184685e-14
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 2.0879692492667933e-14
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 2.0879692492667933e-14
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 8.703942006428687e-15
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 6.778645011165608e-15
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.152
+              }
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.9999997615814209,
+                "margin": 0.9999995760422422,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.9999997615814209
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.8553917868757708e-07
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 3.2241853631376216e-08
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 3.2241853631376216e-08
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 2.5109976320436544e-08
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.5229987937459555e-08
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 7.194134621357762e-09
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 7.194134621357762e-09
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 4.363462480228009e-09
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 1.8189623141040556e-09
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 9.736195183407403e-10
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 6.691585618945339e-10
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.152
+              }
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": "servo_motor",
+              "recognition": {
+                "candidate": "servo_motor",
+                "recognized": true,
+                "similarity": 0.9990887641906738,
+                "margin": 0.9981777132488787,
+                "location_id": 7,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "servo_motor",
+                    "similarity": 0.9990887641906738
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 0.0009110509417951107
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 5.3109410202978324e-08
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 4.6868919412190735e-08
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 4.136164477586135e-08
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 1.9537877093966927e-08
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 1.0457863020008062e-08
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 9.22903797828667e-09
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 8.14459077957963e-09
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 8.14459077957963e-09
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 7.1875807527987945e-09
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 1.6037651207057024e-09
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.151
+              }
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.9998182654380798,
+                "margin": 0.9997434272008832,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.9998182654380798
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 7.483823719667271e-05
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 7.483823719667271e-05
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.0128260328201577e-05
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 7.887896572356112e-06
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 7.887896572356112e-06
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 3.7259769669617526e-06
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 9.420746778232569e-07
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 7.336884095821006e-07
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.465697773208376e-07
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 3.058469246752793e-07
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 8.762656733551921e-08
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.151
+              }
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96394.900168375,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.999363362789154,
+                "margin": 0.9990281136706471,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.999363362789154
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 0.0003352491185069084
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 0.00020333881548140198
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 5.825755943078548e-05
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 2.1431762434076518e-05
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.2999027603655122e-05
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 2.900473418776528e-06
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 9.416460216016276e-07
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 6.471826736742514e-07
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.925365774648526e-07
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 3.0570777198590804e-07
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 2.1010949069477647e-07
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.151
+              }
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "seconds_to_all_three": 4.077,
+      "all_three_confirmed": true,
+      "unexpected_slots": [],
+      "frames": [
+        {
+          "sequence": 1,
+          "elapsed": 0.375,
+          "pending_slots": [],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            }
+          ],
+          "error": null
+        },
+        {
+          "sequence": 2,
+          "elapsed": 3.668,
+          "pending_slots": [],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            }
+          ],
+          "error": null
+        },
+        {
+          "sequence": 3,
+          "elapsed": 4.077,
+          "pending_slots": [
+            1,
+            6,
+            7
+          ],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": "digital_multimeter",
+              "recognition": {
+                "candidate": "digital_multimeter",
+                "recognized": true,
+                "similarity": 1.0,
+                "margin": 0.999999999721053,
+                "location_id": 1,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 1.0
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 2.789469488728713e-10
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 6.224152443445874e-11
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 1.573710259328287e-11
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.3887952420021943e-11
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.0815932351138091e-11
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 1.0815932351138091e-11
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 3.978968196594046e-12
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 1.8795284339317986e-12
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 1.0060395442060277e-12
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 4.193792394521084e-13
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 3.2661327527098993e-13
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.115
+              }
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": "solder",
+              "recognition": {
+                "candidate": "solder",
+                "recognized": true,
+                "similarity": 1.0,
+                "margin": 0.9999999999948909,
+                "location_id": 6,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "solder",
+                    "similarity": 1.0
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 5.1090902342121325e-12
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 1.7482356166019508e-13
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 7.287723078003641e-14
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 5.0087829662950195e-14
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 4.4202265274666946e-14
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 3.900838460297977e-14
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.4424801334184685e-14
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 2.0879692492667933e-14
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 2.0879692492667933e-14
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 8.703942006428687e-15
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 6.778645011165608e-15
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.115
+              }
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.9999997615814209,
+                "margin": 0.9999995760422422,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.9999997615814209
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.8553917868757708e-07
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 3.2241853631376216e-08
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 3.2241853631376216e-08
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 2.5109976320436544e-08
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.5229987937459555e-08
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 7.194134621357762e-09
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 7.194134621357762e-09
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 4.363462480228009e-09
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 1.8189623141040556e-09
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 9.736195183407403e-10
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 6.691585618945339e-10
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.115
+              }
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": "servo_motor",
+              "recognition": {
+                "candidate": "servo_motor",
+                "recognized": true,
+                "similarity": 0.9990887641906738,
+                "margin": 0.9981777132488787,
+                "location_id": 7,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "servo_motor",
+                    "similarity": 0.9990887641906738
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 0.0009110509417951107
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 5.3109410202978324e-08
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 4.6868919412190735e-08
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 4.136164477586135e-08
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 1.9537877093966927e-08
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 1.0457863020008062e-08
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 9.22903797828667e-09
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 8.14459077957963e-09
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 8.14459077957963e-09
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 7.1875807527987945e-09
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 1.6037651207057024e-09
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.145
+              }
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.9998182654380798,
+                "margin": 0.9997434272008832,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.9998182654380798
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 7.483823719667271e-05
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 7.483823719667271e-05
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.0128260328201577e-05
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 7.887896572356112e-06
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 7.887896572356112e-06
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 3.7259769669617526e-06
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 9.420746778232569e-07
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 7.336884095821006e-07
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.465697773208376e-07
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 3.058469246752793e-07
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 8.762656733551921e-08
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.145
+              }
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96399.03486475,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.999363362789154,
+                "margin": 0.9990281136706471,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.999363362789154
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 0.0003352491185069084
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 0.00020333881548140198
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 5.825755943078548e-05
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 2.1431762434076518e-05
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.2999027603655122e-05
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 2.900473418776528e-06
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 9.416460216016276e-07
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 6.471826736742514e-07
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.925365774648526e-07
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 3.0570777198590804e-07
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 2.1010949069477647e-07
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.145
+              }
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "seconds_to_all_three": 4.228,
+      "all_three_confirmed": true,
+      "unexpected_slots": [],
+      "frames": [
+        {
+          "sequence": 1,
+          "elapsed": 0.402,
+          "pending_slots": [],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 1,
+              "state": "observing",
+              "stable_samples": 1,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            }
+          ],
+          "error": null
+        },
+        {
+          "sequence": 2,
+          "elapsed": 3.818,
+          "pending_slots": [],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 2,
+              "state": "provisional",
+              "stable_samples": 2,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": null
+            }
+          ],
+          "error": null
+        },
+        {
+          "sequence": 3,
+          "elapsed": 4.228,
+          "pending_slots": [
+            1,
+            6,
+            7
+          ],
+          "tracks": [
+            {
+              "track_id": 1,
+              "revision": 1,
+              "box": [
+                55,
+                118,
+                293,
+                308
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": "digital_multimeter",
+              "recognition": {
+                "candidate": "digital_multimeter",
+                "recognized": true,
+                "similarity": 1.0,
+                "margin": 0.999999999721053,
+                "location_id": 1,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 1.0
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 2.789469488728713e-10
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 6.224152443445874e-11
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 1.573710259328287e-11
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.3887952420021943e-11
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.0815932351138091e-11
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 1.0815932351138091e-11
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 3.978968196594046e-12
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 1.8795284339317986e-12
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 1.0060395442060277e-12
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 4.193792394521084e-13
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 3.2661327527098993e-13
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.257
+              }
+            },
+            {
+              "track_id": 2,
+              "revision": 1,
+              "box": [
+                657,
+                202,
+                920,
+                258
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": "solder",
+              "recognition": {
+                "candidate": "solder",
+                "recognized": true,
+                "similarity": 1.0,
+                "margin": 0.9999999999948909,
+                "location_id": 6,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "solder",
+                    "similarity": 1.0
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 5.1090902342121325e-12
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 1.7482356166019508e-13
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 7.287723078003641e-14
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 5.0087829662950195e-14
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 4.4202265274666946e-14
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 3.900838460297977e-14
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.4424801334184685e-14
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 2.0879692492667933e-14
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 2.0879692492667933e-14
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 8.703942006428687e-15
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 6.778645011165608e-15
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.257
+              }
+            },
+            {
+              "track_id": 3,
+              "revision": 1,
+              "box": [
+                77,
+                64,
+                170,
+                135
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.9999997615814209,
+                "margin": 0.9999995760422422,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.9999997615814209
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.8553917868757708e-07
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 3.2241853631376216e-08
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 3.2241853631376216e-08
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 2.5109976320436544e-08
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.5229987937459555e-08
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 7.194134621357762e-09
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 7.194134621357762e-09
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 4.363462480228009e-09
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 1.8189623141040556e-09
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 9.736195183407403e-10
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 6.691585618945339e-10
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.257
+              }
+            },
+            {
+              "track_id": 4,
+              "revision": 1,
+              "box": [
+                471,
+                159,
+                509,
+                235
+              ],
+              "frame_id": 3,
+              "state": "accepted",
+              "stable_samples": 3,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": "servo_motor",
+              "recognition": {
+                "candidate": "servo_motor",
+                "recognized": true,
+                "similarity": 0.9990887641906738,
+                "margin": 0.9981777132488787,
+                "location_id": 7,
+                "reason": "Reconocido por Qwen local.",
+                "ranking": [
+                  {
+                    "object": "servo_motor",
+                    "similarity": 0.9990887641906738
+                  },
+                  {
+                    "object": "otros",
+                    "similarity": 0.0009110509417951107
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 5.3109410202978324e-08
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 4.6868919412190735e-08
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 4.136164477586135e-08
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 1.9537877093966927e-08
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 1.0457863020008062e-08
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 9.22903797828667e-09
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 8.14459077957963e-09
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 8.14459077957963e-09
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 7.1875807527987945e-09
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 1.6037651207057024e-09
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.134
+              }
+            },
+            {
+              "track_id": 5,
+              "revision": 1,
+              "box": [
+                225,
+                45,
+                313,
+                138
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.9998182654380798,
+                "margin": 0.9997434272008832,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.9998182654380798
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 7.483823719667271e-05
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 7.483823719667271e-05
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 1.0128260328201577e-05
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 7.887896572356112e-06
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 7.887896572356112e-06
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 3.7259769669617526e-06
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 9.420746778232569e-07
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 7.336884095821006e-07
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.465697773208376e-07
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 3.058469246752793e-07
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 8.762656733551921e-08
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.134
+              }
+            },
+            {
+              "track_id": 6,
+              "revision": 1,
+              "box": [
+                552,
+                58,
+                593,
+                88
+              ],
+              "frame_id": 3,
+              "state": "rejected",
+              "stable_samples": 3,
+              "stable_since": 96403.138873541,
+              "missing_samples": 0,
+              "category": null,
+              "recognition": {
+                "candidate": "otros",
+                "recognized": false,
+                "similarity": 0.999363362789154,
+                "margin": 0.9990281136706471,
+                "location_id": null,
+                "reason": "Objeto desconocido, ambiguo o sin posici\u00f3n.",
+                "ranking": [
+                  {
+                    "object": "otros",
+                    "similarity": 0.999363362789154
+                  },
+                  {
+                    "object": "oscilloscope",
+                    "similarity": 0.0003352491185069084
+                  },
+                  {
+                    "object": "bench_power_supply",
+                    "similarity": 0.00020333881548140198
+                  },
+                  {
+                    "object": "digital_multimeter",
+                    "similarity": 5.825755943078548e-05
+                  },
+                  {
+                    "object": "function_generator",
+                    "similarity": 2.1431762434076518e-05
+                  },
+                  {
+                    "object": "soldering_station",
+                    "similarity": 1.2999027603655122e-05
+                  },
+                  {
+                    "object": "multimeter_box",
+                    "similarity": 2.900473418776528e-06
+                  },
+                  {
+                    "object": "servo_motor",
+                    "similarity": 9.416460216016276e-07
+                  },
+                  {
+                    "object": "power_adapter",
+                    "similarity": 6.471826736742514e-07
+                  },
+                  {
+                    "object": "variable_capacitor",
+                    "similarity": 3.925365774648526e-07
+                  },
+                  {
+                    "object": "solder",
+                    "similarity": 3.0570777198590804e-07
+                  },
+                  {
+                    "object": "capacitors",
+                    "similarity": 2.1010949069477647e-07
+                  }
+                ],
+                "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+                "mode": "mlx_qwen",
+                "elapsed_seconds": 1.134
+              }
+            }
+          ],
+          "error": null
+        }
+      ]
+    }
+  ]
+}

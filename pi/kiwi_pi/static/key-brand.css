@@ -1,0 +1,6 @@
+@font-face{font-family:Albert Sans;src:url('/static/fonts/albert-sans-400.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:Albert Sans;src:url('/static/fonts/albert-sans-500.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:Albert Sans;src:url('/static/fonts/albert-sans-600.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:Albert Sans;src:url('/static/fonts/albert-sans-700.ttf') format('truetype');font-weight:700;font-display:swap}
+:root{--key-blue:#006dff;--key-green:#31e083;--key-black:#111;--key-paper:#f4f5f7;--key-line:#dce1e8;font-family:Albert Sans,Arial,sans-serif}
+button,input{font-family:inherit}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #31e083;outline-offset:3px}

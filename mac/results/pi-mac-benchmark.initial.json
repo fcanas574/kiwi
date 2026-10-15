@@ -1,0 +1,42 @@
+{
+  "field_validation": false,
+  "hardware_led_test": false,
+  "sample": "artificial three-reference-photo montage",
+  "transport": "Pi \u2192 HTTPS/Wi-Fi \u2192 Mac",
+  "runs": [
+    {
+      "run": 1,
+      "seconds_to_all_three": 8.757,
+      "all_three_confirmed": true,
+      "unexpected_slots": []
+    },
+    {
+      "run": 2,
+      "seconds_to_all_three": 5.591,
+      "all_three_confirmed": true,
+      "unexpected_slots": []
+    },
+    {
+      "run": 3,
+      "seconds_to_all_three": 4.642,
+      "all_three_confirmed": true,
+      "unexpected_slots": []
+    },
+    {
+      "run": 4,
+      "seconds_to_all_three": 4.723,
+      "all_three_confirmed": true,
+      "unexpected_slots": []
+    },
+    {
+      "run": 5,
+      "seconds_to_all_three": 4.763,
+      "all_three_confirmed": true,
+      "unexpected_slots": []
+    }
+  ],
+  "quick_one": {
+    "confirmed": true,
+    "seconds": 4.777
+  }
+}

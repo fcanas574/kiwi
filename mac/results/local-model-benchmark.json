@@ -1,0 +1,658 @@
+{
+  "hardware": "Apple M5 / 16 GB",
+  "sample": "three repository reference photos and artificial montage",
+  "field_validation": false,
+  "model": "Qwen3-VL-4B MLX 4bit",
+  "runs": [
+    {
+      "run": 1,
+      "detect_seconds": 0.455,
+      "three_crop_seconds": 1.359,
+      "detect_plus_three_crops_seconds": 1.814,
+      "results": [
+        {
+          "candidate": "digital_multimeter",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999994094692,
+          "location_id": 1,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "digital_multimeter",
+              "similarity": 1.0
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 5.905308464448922e-10
+            },
+            {
+              "object": "otros",
+              "similarity": 1.691900647360356e-10
+            },
+            {
+              "object": "servo_motor",
+              "similarity": 3.7751385351114664e-11
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 3.3315499664565706e-11
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 2.5946099435625314e-11
+            },
+            {
+              "object": "function_generator",
+              "similarity": 2.2897366294682975e-11
+            },
+            {
+              "object": "capacitors",
+              "similarity": 9.545033166635797e-12
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 4.508758817689529e-12
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 1.8795284339317986e-12
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 1.0060395442060277e-12
+            },
+            {
+              "object": "solder",
+              "similarity": 4.752199068286389e-13
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.359
+        },
+        {
+          "candidate": "servo_motor",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999999200804,
+          "location_id": 7,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "servo_motor",
+              "similarity": 1.0
+            },
+            {
+              "object": "otros",
+              "similarity": 7.99195987166712e-11
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 3.978968196594046e-12
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 1.6586790534817153e-12
+            },
+            {
+              "object": "function_generator",
+              "similarity": 7.835053135799019e-13
+            },
+            {
+              "object": "digital_multimeter",
+              "similarity": 6.101936989542922e-13
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 4.193792394521084e-13
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 4.193792394521084e-13
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 3.7010111230036113e-13
+            },
+            {
+              "object": "capacitors",
+              "similarity": 2.8823539150076016e-13
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 1.0603582627829317e-13
+            },
+            {
+              "object": "solder",
+              "similarity": 2.681002257221357e-14
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.359
+        },
+        {
+          "candidate": "solder",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999999934398,
+          "location_id": 6,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "solder",
+              "similarity": 1.0
+            },
+            {
+              "object": "otros",
+              "similarity": 6.560210707995395e-12
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 1.7482356166019508e-13
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 7.287723078003641e-14
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "servo_motor",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 3.900838460297977e-14
+            },
+            {
+              "object": "capacitors",
+              "similarity": 3.037979888270356e-14
+            },
+            {
+              "object": "digital_multimeter",
+              "similarity": 2.681002257221357e-14
+            },
+            {
+              "object": "function_generator",
+              "similarity": 9.862878742883385e-15
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 6.778645011165608e-15
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.359
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "detect_seconds": 0.421,
+      "three_crop_seconds": 1.204,
+      "detect_plus_three_crops_seconds": 1.625,
+      "results": [
+        {
+          "candidate": "digital_multimeter",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999994094692,
+          "location_id": 1,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "digital_multimeter",
+              "similarity": 1.0
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 5.905308464448922e-10
+            },
+            {
+              "object": "otros",
+              "similarity": 1.691900647360356e-10
+            },
+            {
+              "object": "servo_motor",
+              "similarity": 3.7751385351114664e-11
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 3.3315499664565706e-11
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 2.5946099435625314e-11
+            },
+            {
+              "object": "function_generator",
+              "similarity": 2.2897366294682975e-11
+            },
+            {
+              "object": "capacitors",
+              "similarity": 9.545033166635797e-12
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 4.508758817689529e-12
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 1.8795284339317986e-12
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 1.0060395442060277e-12
+            },
+            {
+              "object": "solder",
+              "similarity": 4.752199068286389e-13
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.204
+        },
+        {
+          "candidate": "servo_motor",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999999200804,
+          "location_id": 7,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "servo_motor",
+              "similarity": 1.0
+            },
+            {
+              "object": "otros",
+              "similarity": 7.99195987166712e-11
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 3.978968196594046e-12
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 1.6586790534817153e-12
+            },
+            {
+              "object": "function_generator",
+              "similarity": 7.835053135799019e-13
+            },
+            {
+              "object": "digital_multimeter",
+              "similarity": 6.101936989542922e-13
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 4.193792394521084e-13
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 4.193792394521084e-13
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 3.7010111230036113e-13
+            },
+            {
+              "object": "capacitors",
+              "similarity": 2.8823539150076016e-13
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 1.0603582627829317e-13
+            },
+            {
+              "object": "solder",
+              "similarity": 2.681002257221357e-14
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.204
+        },
+        {
+          "candidate": "solder",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999999934398,
+          "location_id": 6,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "solder",
+              "similarity": 1.0
+            },
+            {
+              "object": "otros",
+              "similarity": 6.560210707995395e-12
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 1.7482356166019508e-13
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 7.287723078003641e-14
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "servo_motor",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 3.900838460297977e-14
+            },
+            {
+              "object": "capacitors",
+              "similarity": 3.037979888270356e-14
+            },
+            {
+              "object": "digital_multimeter",
+              "similarity": 2.681002257221357e-14
+            },
+            {
+              "object": "function_generator",
+              "similarity": 9.862878742883385e-15
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 6.778645011165608e-15
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.204
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "detect_seconds": 0.41,
+      "three_crop_seconds": 1.183,
+      "detect_plus_three_crops_seconds": 1.593,
+      "results": [
+        {
+          "candidate": "digital_multimeter",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999994094692,
+          "location_id": 1,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "digital_multimeter",
+              "similarity": 1.0
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 5.905308464448922e-10
+            },
+            {
+              "object": "otros",
+              "similarity": 1.691900647360356e-10
+            },
+            {
+              "object": "servo_motor",
+              "similarity": 3.7751385351114664e-11
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 3.3315499664565706e-11
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 2.5946099435625314e-11
+            },
+            {
+              "object": "function_generator",
+              "similarity": 2.2897366294682975e-11
+            },
+            {
+              "object": "capacitors",
+              "similarity": 9.545033166635797e-12
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 4.508758817689529e-12
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 1.8795284339317986e-12
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 1.0060395442060277e-12
+            },
+            {
+              "object": "solder",
+              "similarity": 4.752199068286389e-13
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.183
+        },
+        {
+          "candidate": "servo_motor",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999999200804,
+          "location_id": 7,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "servo_motor",
+              "similarity": 1.0
+            },
+            {
+              "object": "otros",
+              "similarity": 7.99195987166712e-11
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 3.978968196594046e-12
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 1.6586790534817153e-12
+            },
+            {
+              "object": "function_generator",
+              "similarity": 7.835053135799019e-13
+            },
+            {
+              "object": "digital_multimeter",
+              "similarity": 6.101936989542922e-13
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 4.193792394521084e-13
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 4.193792394521084e-13
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 3.7010111230036113e-13
+            },
+            {
+              "object": "capacitors",
+              "similarity": 2.8823539150076016e-13
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 1.0603582627829317e-13
+            },
+            {
+              "object": "solder",
+              "similarity": 2.681002257221357e-14
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.183
+        },
+        {
+          "candidate": "solder",
+          "recognized": true,
+          "similarity": 1.0,
+          "margin": 0.9999999999934398,
+          "location_id": 6,
+          "reason": "Reconocido por Qwen local.",
+          "ranking": [
+            {
+              "object": "solder",
+              "similarity": 1.0
+            },
+            {
+              "object": "otros",
+              "similarity": 6.560210707995395e-12
+            },
+            {
+              "object": "multimeter_box",
+              "similarity": 1.7482356166019508e-13
+            },
+            {
+              "object": "bench_power_supply",
+              "similarity": 7.287723078003641e-14
+            },
+            {
+              "object": "soldering_station",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "servo_motor",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "power_adapter",
+              "similarity": 5.675691307997083e-14
+            },
+            {
+              "object": "variable_capacitor",
+              "similarity": 3.900838460297977e-14
+            },
+            {
+              "object": "capacitors",
+              "similarity": 3.037979888270356e-14
+            },
+            {
+              "object": "digital_multimeter",
+              "similarity": 2.681002257221357e-14
+            },
+            {
+              "object": "function_generator",
+              "similarity": 9.862878742883385e-15
+            },
+            {
+              "object": "oscilloscope",
+              "similarity": 6.778645011165608e-15
+            }
+          ],
+          "model": "mlx-community/Qwen3-VL-4B-Instruct-4bit",
+          "mode": "mlx_qwen",
+          "elapsed_seconds": 1.183
+        }
+      ]
+    }
+  ],
+  "optimized_reference_max_score_difference": 0.0,
+  "detections": {
+    "image_size": [
+      960,
+      480
+    ],
+    "objects": [
+      {
+        "id": 1,
+        "box": [
+          55,
+          118,
+          293,
+          308
+        ],
+        "detector_label": "a digital multimeterllo yellow multimeter box",
+        "detector_score": 0.444738507270813
+      },
+      {
+        "id": 2,
+        "box": [
+          657,
+          202,
+          920,
+          258
+        ],
+        "detector_label": "osscope a power adapter a soldering iron",
+        "detector_score": 0.3946383595466614
+      },
+      {
+        "id": 3,
+        "box": [
+          77,
+          64,
+          169,
+          135
+        ],
+        "detector_label": "a function generator a variable cap a capitor a yellow multimeter box",
+        "detector_score": 0.3317522406578064
+      },
+      {
+        "id": 4,
+        "box": [
+          471,
+          159,
+          509,
+          235
+        ],
+        "detector_label": "a servo motor an oscilloscope a variable capacitor",
+        "detector_score": 0.33041688799858093
+      },
+      {
+        "id": 5,
+        "box": [
+          225,
+          45,
+          314,
+          138
+        ],
+        "detector_label": "a laboratory power supply generator a power adapter",
+        "detector_score": 0.28199607133865356
+      },
+      {
+        "id": 6,
+        "box": [
+          552,
+          58,
+          594,
+          88
+        ],
+        "detector_label": "a yellow multimeter box",
+        "detector_score": 0.2688941955566406
+      }
+    ],
+    "raw_detections": 11,
+    "detection_seconds": 1.376
+  }
+}

@@ -72,6 +72,9 @@ class ScanCoordinator:
         self._backoff_index = 0
         self._detection_seconds = 0.0
         self._classification_seconds = 0.0
+        self._single_candidate = None
+        self._single_count = 0
+        self._single_track = None
 
         self._suppressed: set[str] = set()
         self._absence_counts: dict[str, int] = {}
@@ -160,6 +163,17 @@ class ScanCoordinator:
     def owns(self, owner: str, session_id: str) -> bool:
         return self._owner == owner and self._session_id == session_id
 
+    def finish_station_cycle(self) -> dict:
+        """An explicit touchscreen finish turns lights off and rearms all objects."""
+        self.cancel_for_manual()
+        self._suppressed.clear()
+        self._absence_counts.clear()
+        self._connection_error = None
+        self._retry_at = None
+        self._backoff_index = 0
+        self.station.notify()
+        return self.snapshot()
+
     def snapshot(self) -> dict:
         self._purge_expired_corrections()
         retry_after = max(0.0, (self._retry_at or 0.0) - self.clock())
@@ -169,7 +183,8 @@ class ScanCoordinator:
             'capture_state': self._capture_state,
             'last_sequence': self._last_sequence,
             'busy': self._busy,
-            'tracks': self.tracker.snapshot(),
+            'mode': self.cfg.section('scan').get('mode', 'tracked'),
+            'tracks': [dict(self._single_track)] if self._single_track else self.tracker.snapshot(),
             'connection_error': self._connection_error,
             'retry_after_seconds': round(retry_after, 3),
             'detection_seconds': self._detection_seconds,
@@ -204,78 +219,99 @@ class ScanCoordinator:
                 _normalize_scan_jpeg, jpeg, max_side)
             self._ensure_current(session_id, frame_generation)
 
-            detection_started = time.perf_counter()
-            detection_payload = await self.recognizer.detect(normalized_jpeg, request_correlation)
-            self._ensure_current(session_id, frame_generation)
-            self._detection_seconds = round(time.perf_counter() - detection_started, 3)
-            self._require_correlation(detection_payload, request_correlation)
-            detections = validate_detections(detection_payload, image_size)
+            if self.cfg.section('scan').get('mode', 'tracked') == 'single':
+                response_data = await self._process_single(
+                    normalized_jpeg, image_size, session_id, frame_generation, sequence,
+                    request_correlation)
+            else:
+                detection_started = time.perf_counter()
+                detection_payload = await self.recognizer.detect(normalized_jpeg, request_correlation)
+                self._ensure_current(session_id, frame_generation)
+                self._detection_seconds = round(time.perf_counter() - detection_started, 3)
+                self._require_correlation(detection_payload, request_correlation)
+                detections = validate_detections(detection_payload, image_size)
+                detections = _consolidate_detections(detections, self.cfg.section('scan'))
 
-            frame_crops = await asyncio.to_thread(
-                _make_detection_crops, normalized_jpeg, image_size, detections)
-            self._ensure_current(session_id, frame_generation)
+                frame_crops = await asyncio.to_thread(
+                    _make_detection_crops, normalized_jpeg, image_size, detections)
+                self._ensure_current(session_id, frame_generation)
 
-            confirmed = self.tracker.update(sequence, image_size, detections, self.clock())
-            self._sync_cycle()
-            self._apply_confirmed(confirmed)
-            self._frame_jpeg = normalized_jpeg
-            self._frame_sequence = sequence
-            self._frame_image_size = image_size
-            self._current_crops = {
-                track['track_id']: {
-                    **frame_crops[tuple(track['box'])],
-                    'revision': track['revision'],
-                    'sequence': sequence,
-                    'box': list(track['box']),
-                    'state': track['state'],
-                    'category': track['category'],
-                    'recognition': track['recognition'],
+                confirmed = self.tracker.update(sequence, image_size, detections, self.clock())
+                self._sync_cycle()
+                self._apply_confirmed(confirmed)
+                self._frame_jpeg = normalized_jpeg
+                self._frame_sequence = sequence
+                self._frame_image_size = image_size
+                self._current_crops = {
+                    track['track_id']: {
+                        **frame_crops[tuple(track['box'])],
+                        'revision': track['revision'],
+                        'sequence': sequence,
+                        'box': list(track['box']),
+                        'state': track['state'],
+                        'category': track['category'],
+                        'recognition': track['recognition'],
+                    }
+                    for track in self.tracker.snapshot()
+                    if track['frame_id'] == sequence and tuple(track['box']) in frame_crops
                 }
-                for track in self.tracker.snapshot()
-                if track['frame_id'] == sequence and tuple(track['box']) in frame_crops
-            }
 
-            candidate = self.tracker.next_candidate(self.clock())
-            if candidate is not None:
-                crop_item = self._current_crops.get(candidate['track_id'])
-                if crop_item is None or crop_item['revision'] != candidate['revision']:
-                    self.tracker.classification_failed(candidate['track_id'], candidate['revision'],
-                                                       self.clock())
-                    candidate = None
-            if candidate is not None:
-                crop = self._current_crops[candidate['track_id']]['jpeg']
-                classification_correlation = {
-                    **request_correlation,
-                    'track_id': candidate['track_id'],
-                    'revision': candidate['revision'],
-                }
-                if isinstance(self.recognizer, MockRecognizer):
-                    # Mock crops carry no visual semantics. Use this frame's
-                    # detection identity, never the persistent track counter.
-                    detection = next(item for item in detections
-                                     if item['box'] == candidate['box'])
-                    classification_correlation['object_id'] = detection['id']
-                classification_started = time.perf_counter()
-                try:
-                    classification_payload = await self.recognizer.classify(crop, classification_correlation)
-                    self._ensure_current(session_id, frame_generation)
-                    self._classification_seconds = round(time.perf_counter() - classification_started, 3)
-                    self._require_correlation(classification_payload, classification_correlation)
-                    recognition = validate_classification(classification_payload)
-                except _StaleGeneration:
-                    raise
-                except Exception:
-                    if self._is_current(session_id, frame_generation):
+                candidates = []
+                batch = getattr(self.recognizer, 'supports_batch', False)
+                for _ in range(6 if batch else 1):
+                    candidate = self.tracker.next_candidate(self.clock())
+                    if candidate is None:
+                        break
+                    crop_item = self._current_crops.get(candidate['track_id'])
+                    if crop_item is None or crop_item['revision'] != candidate['revision']:
                         self.tracker.classification_failed(candidate['track_id'], candidate['revision'],
                                                            self.clock())
-                    raise
-                self.tracker.set_provisional(candidate['track_id'], candidate['revision'],
-                                             recognition, self.clock())
+                        continue
+                    metadata = {**request_correlation, 'track_id': candidate['track_id'],
+                                'revision': candidate['revision']}
+                    if isinstance(self.recognizer, MockRecognizer):
+                        detection = next(item for item in detections if item['box'] == candidate['box'])
+                        metadata['object_id'] = detection['id']
+                    candidates.append((candidate, crop_item['jpeg'], metadata))
+                if candidates:
+                    classification_started = time.perf_counter()
+                    self.station.notify()
+                    try:
+                        if batch:
+                            payloads = []
+                            for offset in range(0, len(candidates), 3):
+                                chunk = candidates[offset:offset + 3]
+                                payloads.extend(await self.recognizer.classify_batch(
+                                    [(crop, metadata) for _, crop, metadata in chunk]))
+                                self._ensure_current(session_id, frame_generation)
+                        else:
+                            _, crop, metadata = candidates[0]
+                            payloads = [await self.recognizer.classify(crop, metadata)]
+                        self._ensure_current(session_id, frame_generation)
+                        if not isinstance(payloads, list) or len(payloads) != len(candidates):
+                            raise RecognizerError('Cantidad de clasificaciones inconsistente.')
+                        # Validate the complete batch before accepting any result.
+                        recognitions = []
+                        for payload, (_, _, metadata) in zip(payloads, candidates):
+                            self._require_correlation(payload, metadata)
+                            recognitions.append(validate_classification(payload))
+                        self._classification_seconds = round(time.perf_counter() - classification_started, 3)
+                    except _StaleGeneration:
+                        raise
+                    except Exception:
+                        if self._is_current(session_id, frame_generation):
+                            for candidate, _, _ in candidates:
+                                self.tracker.classification_failed(candidate['track_id'], candidate['revision'],
+                                                                   self.clock())
+                        raise
+                    for (candidate, _, _), recognition in zip(candidates, recognitions):
+                        self.tracker.set_provisional(candidate['track_id'], candidate['revision'],
+                                                     recognition, self.clock())
 
-            self._update_rearming()
-            self._sync_cycle()
-            self._clear_backoff()
-            response_data = {'detections': detections, 'confirmed': confirmed}
+                self._update_rearming()
+                self._sync_cycle()
+                self._clear_backoff()
+                response_data = {'detections': detections, 'confirmed': confirmed}
         except _StaleGeneration:
             response_data = {'detections': [], 'confirmed': [], 'discarded': True}
         except ScanError:
@@ -291,6 +327,55 @@ class ScanCoordinator:
             self.station.notify()
 
         return {**self.snapshot(), **response_data}
+
+    async def _process_single(self, jpeg, image_size, session_id, generation, sequence, correlation):
+        """Two matching full-scene classifications for one presented instrument.
+
+        This mode avoids the detector's part/background proposals. The operator
+        presents one instrument at a time; tracked mode handles multiple crops.
+        """
+        self._single_track = {'track_id': 1, 'revision': generation,
+                              'box': [0, 0, *image_size], 'frame_id': sequence,
+                              'state': 'classifying', 'stable_samples': self._single_count,
+                              'missing_samples': 0, 'category': None, 'recognition': None}
+        self.station.notify()
+        began = time.perf_counter()
+        payload = await self.recognizer.classify(jpeg, correlation)
+        self._ensure_current(session_id, generation)
+        self._require_correlation(payload, correlation)
+        recognition = validate_classification(payload)
+        self._classification_seconds = round(time.perf_counter() - began, 3)
+        decision = decide(self.cfg, recognition)
+        accepted = decision.accepted and recognition.get('recognized') is not False
+        category = decision.category if accepted else None
+        if category and category == self._single_candidate:
+            self._single_count += 1
+        else:
+            self._single_candidate = category
+            self._single_count = 1 if category else 0
+        confirmed = []
+        self._sync_cycle()
+        if category and self._single_count >= 2:
+            confirmed = [{'track_id': 1, 'revision': generation, 'recognition': recognition}]
+            self._apply_confirmed(confirmed)
+        state = 'accepted' if confirmed else 'provisional' if category else 'rejected'
+        self._single_track.update(state=state, stable_samples=min(2, self._single_count),
+                                  category=category if confirmed else None,
+                                  recognition=recognition)
+        # In single-object mode, three valid classifications of another scene
+        # permit rearming. Network failures and pauses never count as absence.
+        for old in list(self._suppressed):
+            if old == category:
+                self._absence_counts[old] = 0
+            else:
+                self._absence_counts[old] = self._absence_counts.get(old, 0) + 1
+                if self._absence_counts[old] >= 3:
+                    self._suppressed.discard(old)
+                    self._absence_counts.pop(old, None)
+        self._frame_jpeg, self._frame_sequence = jpeg, sequence
+        self._frame_image_size = image_size
+        self._clear_backoff()
+        return {'detections': [], 'confirmed': confirmed}
 
     def freeze_correction(self, session_id: str, track_id: int, revision: int) -> dict:
         self._require_session(session_id)
@@ -492,6 +577,10 @@ class ScanCoordinator:
             self._cycle_operation_id = operation_id
 
     def _set_connection_error(self, exc: Exception) -> None:
+        self._single_candidate = None
+        self._single_count = 0
+        if self._single_track:
+            self._single_track['state'] = 'failed'
         detail = str(exc) or exc.__class__.__name__
         for secret in (self.cfg.section('recognizer').get('api_key', ''),
                        getattr(self.cfg, 'scan_pairing_key', '')):
@@ -515,6 +604,9 @@ class ScanCoordinator:
         self._backoff_index = 0
 
     def _discard_current_frame(self) -> None:
+        self._single_candidate = None
+        self._single_count = 0
+        self._single_track = None
         self._frame_jpeg = None
         self._frame_sequence = None
         self._frame_image_size = None
@@ -561,6 +653,34 @@ class ScanCoordinator:
             self._correction_expiry_task = None
 
         self._correction_expiry_task = loop.create_task(expire())
+
+
+def _consolidate_detections(detections: list[dict], options: dict) -> list[dict]:
+    """Suppress duplicate and contained proposals before temporal association.
+
+    DINO can propose the full instrument, its display and its controls under
+    different labels. Let Qwen classify the best proposal for that region.
+    Separate instruments should be placed next to each other, without overlap.
+    """
+    iou_threshold = float(options.get('detection_nms_iou', 0.45))
+    containment_threshold = float(options.get('detection_containment', 0.9))
+    selected = []
+    for item in sorted(detections, key=lambda value: value['detector_score'], reverse=True):
+        box = item['box']
+        area = (box[2] - box[0]) * (box[3] - box[1])
+        duplicate = False
+        for old in selected:
+            other = old['box']
+            other_area = (other[2] - other[0]) * (other[3] - other[1])
+            intersection = max(0, min(box[2], other[2]) - max(box[0], other[0])) * max(
+                0, min(box[3], other[3]) - max(box[1], other[1]))
+            if (intersection / (area + other_area - intersection) >= iou_threshold
+                    or intersection / min(area, other_area) >= containment_threshold):
+                duplicate = True
+                break
+        if not duplicate:
+            selected.append(item)
+    return selected
 
 
 def _normalize_scan_jpeg(data: bytes, max_side: int) -> tuple[bytes, tuple[int, int]]:

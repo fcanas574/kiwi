@@ -39,10 +39,17 @@ decision:
   test_mode: false
 
 scan:
+  # single: un objeto por vez, dos clasificaciones coincidentes; tracked:
+  # varios objetos, localización DINO y verificación por seguimiento.
+  mode: tracked
   # Emparejamiento del teléfono: configurar KIWI_SCAN_PAIRING_KEY por entorno.
-  # Es distinto de KIWI_API_KEY y nunca se entrega al navegador.
+  # Es distinto de KIWI_API_KEY; solo se muestra en la pantalla local de la Pi.
   max_fps: 1
   max_side: 960
+  # DINO puede proponer un instrumento completo y sus partes. Antes del
+  # seguimiento, conserva la propuesta más confiable de cada región.
+  detection_nms_iou: 0.45
+  detection_containment: 0.9
   association_iou: 0.3
   ambiguity_delta: 0.1
   stable_samples: 3
@@ -57,7 +64,7 @@ scan:
   rearm_samples: 3
 
 camera:
-  # none: la foto se toma o se sube desde el teléfono (flujo principal).
+  # none: el teléfono envía imágenes como webcam (flujo principal).
   # auto | picamera2 | opencv: usar una cámara conectada a la Pi.
   driver: none
   opencv_index: 0
@@ -98,6 +105,9 @@ sensors:
   poll_ms: 50
 
 guide:
+  # Sin sensores: apagar cada LED de escaneo después de este plazo.
+  # 0 conserva la guía hasta finalizar; la instalación de pruebas usa 20.
+  continuous_led_seconds: 0
   guide_timeout_seconds: 120   # si nadie devuelve la herramienta, se apaga la guía
   auto_reset_seconds: 5        # tras devolverla, la pantalla vuelve al inicio
 

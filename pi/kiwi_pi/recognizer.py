@@ -6,6 +6,7 @@ import random
 import io
 import math
 import json
+import ssl
 from PIL import Image
 import tempfile
 from dataclasses import dataclass, field
@@ -65,7 +66,15 @@ class RestRecognizer(Recognizer):
 
     def __init__(self, cfg: Config):
         super().__init__(cfg)
-        self.client = httpx.AsyncClient(timeout=float(self.section.get('timeout_seconds', 30)))
+        context = ssl.create_default_context()
+        if self.section.get('tls_ca_file'):
+            context.load_verify_locations(self.section['tls_ca_file'])
+        self.client = httpx.AsyncClient(timeout=float(self.section.get('timeout_seconds', 30)), verify=context)
+        self.supports_batch = False
+
+    def set_url(self, url: str) -> None:
+        super().set_url(url)
+        self.supports_batch = False
 
     def _headers(self) -> dict[str, str]:
         headers = {'ngrok-skip-browser-warning': '1'}
@@ -125,6 +134,24 @@ class RestRecognizer(Recognizer):
     async def classify(self, jpeg: bytes, correlation: dict) -> dict:
         return await self._scan('classify', jpeg, correlation)
 
+    async def classify_batch(self, items: list[tuple[bytes, dict]]) -> list[dict]:
+        if not self.supports_batch or not 1 <= len(items) <= 3:
+            raise RecognizerError('La API no admite este lote de recortes.')
+        try:
+            response = await self.client.post(self._operation_url('classify-batch'),
+                headers=self._headers(),
+                files=[('files', (f'crop-{i}.jpg', jpeg, 'image/jpeg')) for i, (jpeg, _) in enumerate(items)],
+                data={'correlations': json.dumps([info for _, info in items])})
+            if response.status_code != 200:
+                raise RecognizerError(f'La API respondió {response.status_code}.')
+            data = response.json()
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise RecognizerError('No se pudo obtener el lote de clasificaciones.') from exc
+        results = data.get('items') if isinstance(data, dict) else None
+        if not isinstance(results, list) or len(results) != len(items) or not all(isinstance(item, dict) for item in results):
+            raise RecognizerError('El lote de clasificaciones está incompleto.')
+        return results
+
     async def health(self) -> Health:
         if not self._configured():
             return Health(False, 'Sin URL configurada')
@@ -134,7 +161,9 @@ class RestRecognizer(Recognizer):
         except (httpx.HTTPError, ValueError) as exc:
             return Health(False, exc.__class__.__name__)
         if not data.get('ok'):
+            self.supports_batch = False
             return Health(False, f'HTTP {response.status_code}')
+        self.supports_batch = (data.get('capabilities') or {}).get('classify_batch') is True
         return Health(True, 'OK', data.get('mode'), data.get('calibrated'),
                       data.get('capabilities'))
 

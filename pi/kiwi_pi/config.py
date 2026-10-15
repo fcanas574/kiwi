@@ -50,6 +50,8 @@ class Config:
         settings = self._load_settings()
         if settings.get('recognizer_url'):
             raw['recognizer']['url'] = settings['recognizer_url']
+        if settings.get('scan_mode') in ('single', 'tracked'):
+            raw.setdefault('scan', {})['mode'] = settings['scan_mode']
 
         self.slots = [Slot(int(s['id']), str(s['category']), str(s['label']), str(s.get('location') or f"Posición {s['id']}"))
                       for s in raw['station']['slots']]

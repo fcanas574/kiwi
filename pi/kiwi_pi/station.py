@@ -10,6 +10,7 @@ Fases de la guía:
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from typing import Any
 
@@ -53,6 +54,9 @@ class Station:
         self.guide_timeout = float(guide.get('guide_timeout_seconds', 120))
         self.auto_reset = float(guide.get('auto_reset_seconds', 5))
         self.ok_seconds = float(cfg.section('leds').get('ok_seconds', 4))
+        self.continuous_led_seconds = max(0, float(guide.get('continuous_led_seconds', 0)))
+        self._slot_timers: dict[int, asyncio.Task] = {}
+        self._slot_deadlines: dict[int, float] = {}
         self.health = Health(False, 'Comprobando…')
         self.phase = 'idle'
         self.targets: dict[int, Slot] = {}
@@ -82,6 +86,7 @@ class Station:
             self._tasks.append(asyncio.create_task(self.sensors.run()))
 
     async def stop(self) -> None:
+        self._cancel_slot_timers()
         for task in self._tasks + ([self._timer] if self._timer else []):
             task.cancel()
         self.leds.all_off()
@@ -129,7 +134,9 @@ class Station:
             'drivers': {'recognizer': self.recognizer.name, 'camera': self.camera_name,
                         'leds': self.leds.driver_name, 'sensors': self.sensors.driver_name},
             'columns': int(self.cfg.section('station').get('shelf_columns', 3)),
-            'slots': [{**s.as_dict(), 'occupied': self.sensors.state.get(s.id), 'led': leds[s.id]}
+            'slots': [{**s.as_dict(), 'occupied': self.sensors.state.get(s.id), 'led': leds[s.id],
+                       'led_remaining': math.ceil(max(0, self._slot_deadlines[s.id] - time.monotonic()))
+                       if s.id in self._slot_deadlines else None}
                       for s in self.cfg.slots],
             'guide': {'operation_id': self.operation_id, 'targets': [s.as_dict() for s in self.targets.values()],
                       'pending': sorted(self.pending), 'confirmed': sorted(self.confirmed),
@@ -202,6 +209,7 @@ class Station:
             self.started_at = time.monotonic()
             for slot_id in incoming:
                 self.leds.set(slot_id, 'guide')
+                self._schedule_slot_timeout(slot_id)
             self.notify()
             return
 
@@ -224,11 +232,13 @@ class Station:
             # governed by the target's clear-then-return rule.
             self.wrong_slots.discard(slot_id)
             self.leds.set(slot_id, 'guide')
+            self._schedule_slot_timeout(slot_id)
 
         self.target = next(iter(self.targets.values())) if len(self.targets) == 1 else None
         self._update_progress()
 
     def cancel_guide(self, *, natural_completion: bool = False) -> None:
+        self._cancel_slot_timers()
         if not natural_completion:
             self.operation_revision += 1
         self._guide_cycle += 1
@@ -250,6 +260,39 @@ class Station:
         self.wrong_slots.clear()
         self.test_mode = False
         self.notify()
+
+    def _cancel_slot_timers(self) -> None:
+        for task in self._slot_timers.values():
+            task.cancel()
+        self._slot_timers.clear()
+        self._slot_deadlines.clear()
+
+    def _schedule_slot_timeout(self, slot_id: int) -> None:
+        # Presence sensors use their existing return verification. This timeout
+        # is the guidance policy for a camera-and-LED station without sensors.
+        if self.sensors.enabled or not self.continuous_led_seconds:
+            return
+        cycle = self._guide_cycle
+        self._slot_deadlines[slot_id] = time.monotonic() + self.continuous_led_seconds
+
+        async def expire():
+            await asyncio.sleep(self.continuous_led_seconds)
+            if cycle != self._guide_cycle:
+                return
+            self._slot_timers.pop(slot_id, None)
+            self._slot_deadlines.pop(slot_id, None)
+            self.leds.set(slot_id, 'off')
+            self.targets.pop(slot_id, None)
+            self.pending.discard(slot_id)
+            self.confirmed.discard(slot_id)
+            self.blocked.discard(slot_id)
+            if not self.targets:
+                self.cancel_guide(natural_completion=True)
+            else:
+                self.target = next(iter(self.targets.values())) if len(self.targets) == 1 else None
+                self.notify()
+
+        self._slot_timers[slot_id] = asyncio.create_task(expire())
 
     def _on_timeout(self) -> None:
         if not self.continuous and self.phase in ('guiding', 'wrong_slot'):

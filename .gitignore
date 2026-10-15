@@ -28,3 +28,7 @@ pi/local-https/
 **/server-config.yaml
 **/ca.srl
 **/server.csr
+mac/tls/
+mac/.server.lock
+mac/.server.pid
+mac/results/*.log
