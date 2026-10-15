@@ -4,11 +4,33 @@ Prototipo de **KEY Week / ToolLighthouse** para identificar herramientas de labo
 
 ```mermaid
 flowchart LR
-    I["iPhone · solo cámara"] -->|"JPEG por HTTPS"| P["Raspberry Pi 4 · estación"]
-    U["Pantalla táctil 800×480"] <-->|"Controles y resultados"| P
-    P <-->|"API HTTPS autenticada"| M["Mac Apple Silicon · Qwen + Grounding DINO"]
-    P --> L["LEDs por posición · temporizador de 20 s"]
+    phone["iPhone · Safari /camera · getUserMedia"] -->|"JPEG por HTTPS"| frame
+
+    subgraph raspberry["Raspberry Pi 4 · estación y control"]
+        screen["Pantalla táctil 800×480 · iniciar, pausar y finalizar"] --> mode{"Modo de escaneo"}
+        frame["Último fotograma · sin cola de imágenes"] --> mode
+        crops["Filtrar duplicados · tracking estable · recortar objetos"]
+        validate["Validar correlación y categoría · confirmación temporal"]
+        gpio["Categoría → posición → GPIO · apagado a los 20 s"]
+        validate --> gpio
+        validate -->|"Estado y resultados"| screen
+    end
+
+    subgraph mac["Mac Apple Silicon · API FastAPI / Uvicorn"]
+        dino["Grounding DINO tiny · PyTorch MPS · localizar herramientas"]
+        qwen["Qwen3-VL-4B-Instruct · MLX 4 bits · clasificar imagen o recortes"]
+        scores["Logits de opciones → softmax · umbrales de puntuación y margen"]
+        qwen --> scores
+    end
+
+    mode -->|"Varios · POST /detect"| dino
+    dino -->|"JSON · bounding boxes y scores"| crops
+    crops -->|"POST /classify-batch · hasta 3 recortes por lote"| qwen
+    mode -->|"Rápido · 1 · POST /classify · imagen completa"| qwen
+    scores -->|"JSON · categoría, puntuaciones y correlación"| validate
 ```
+
+Las solicitudes de la Pi al Mac usan **HTTPS con autenticación Bearer**. Qwen calcula las puntuaciones de las opciones a partir de los logits del modelo; son probabilidades relativas entre categorías, no una medida calibrada de exactitud. La Pi descarta respuestas antiguas y confirma según el modo: **dos clasificaciones coincidentes** en Rápido · 1, o **una detección DINO posterior compatible con el objeto clasificado** en Varios.
 
 ![Interfaz de la Raspberry conectada al Mac](docs/images/raspberry-kiwi-mac.png)
 
